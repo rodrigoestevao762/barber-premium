@@ -1,0 +1,84 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+  directUrl = env("DATABASE_URL_UNPOOLED")
+}
+
+model User {
+  id            String    @id @default(cuid())
+  name          String?
+  email         String?   @unique
+  phone         String?   @unique
+  password      String?
+  role          String    @default("CLIENT")
+  appointments  Appointment[]
+  waitlists     Waitlist[]
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+}
+
+model Service {
+  id          String   @id @default(cuid())
+  name        String
+  description String
+  price       Float
+  duration    Int
+  imageUrl    String?
+  appointments Appointment[]
+}
+
+model Barber {
+  id             String   @id @default(cuid())
+  name           String
+  commissionRate Float    @default(0.5)
+  appointments   Appointment[]
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+}
+
+model Appointment {
+  id            String   @id @default(cuid())
+  date          DateTime
+  status        String   @default("PENDING") // PENDING, CONFIRMED, COMPLETED, CANCELLED
+  userId        String
+  user          User     @relation(fields: [userId], references: [id])
+  serviceId     String
+  service       Service  @relation(fields: [serviceId], references: [id])
+  barberId      String?
+  barber        Barber?  @relation(fields: [barberId], references: [id])
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+}
+
+model Expense {
+  id          String   @id @default(cuid())
+  description String
+  amount      Float
+  date        DateTime @default(now())
+  createdAt   DateTime @default(now())
+}
+
+model Waitlist {
+  id            String   @id @default(cuid())
+  userId        String
+  user          User     @relation(fields: [userId], references: [id])
+  dateRequested DateTime
+  status        String   @default("WAITING") // WAITING, NOTIFIED, BOOKED
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+}
+
+model CashClosing {
+  id             String   @id @default(cuid())
+  date           DateTime @default(now())
+  totalRevenue   Float
+  totalExpenses  Float?
+  closedBy       String?
+  notes          String?
+  barberRevenues String?  // Stored as JSON string for simplicity
+  createdAt      DateTime @default(now())
+}

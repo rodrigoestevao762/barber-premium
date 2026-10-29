@@ -1,0 +1,5 @@
+{
+  "env": {
+    "NEXTAUTH_SECRET": "super-secret-barber-key-123"
+  }
+}
