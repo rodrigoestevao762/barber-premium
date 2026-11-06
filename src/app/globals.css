@@ -1,15 +1,19 @@
 @import "tailwindcss";
 
 :root {
-  --background: #050B14;
+  --background: #050608;
   --foreground: #ffffff;
-  --gold: #C88E70;
+  --gold-light: #F5D799;
+  --gold: #DFBA73;
+  --gold-dark: #B88B38;
 }
 
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
   --color-gold: var(--gold);
+  --color-gold-light: var(--gold-light);
+  --color-gold-dark: var(--gold-dark);
   --font-sans: var(--font-inter);
   --font-serif: var(--font-playfair);
 }
@@ -18,4 +22,51 @@ body {
   background: var(--background);
   color: var(--foreground);
   font-family: var(--font-sans), Arial, Helvetica, sans-serif;
+  overflow-x: hidden !important;
+  max-width: 100vw !important;
+  width: 100% !important;
+  position: relative;
+  -webkit-text-size-adjust: 100%;
+}
+
+html {
+  overflow-x: hidden !important;
+  max-width: 100vw !important;
+  width: 100% !important;
+}
+
+/* Previne zoom automático invasivo do iOS Safari e Android ao focar inputs */
+@media screen and (max-width: 768px) {
+  input, select, textarea {
+    font-size: 16px !important;
+  }
+}
+
+/* Brilho dourado direto e contínuo até na versão PC (Desktop) */
+.card-glow-direct {
+  border-color: rgba(223, 186, 115, 0.45) !important;
+  box-shadow: 0 12px 40px -5px rgba(0, 0, 0, 0.8), 0 0 25px rgba(223, 186, 115, 0.18) !important;
+}
+
+.gold-border-direct {
+  border-color: rgba(223, 186, 115, 0.4) !important;
+}
+
+.gold-text-glow {
+  text-shadow: 0 0 18px rgba(223, 186, 115, 0.45);
+}
+
+/* Custom scrollbar styling */
+::-webkit-scrollbar {
+  width: 6px;
+}
+::-webkit-scrollbar-track {
+  background: #050608;
+}
+::-webkit-scrollbar-thumb {
+  background: #DFBA73;
+  border-radius: 3px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #F5D799;
 }

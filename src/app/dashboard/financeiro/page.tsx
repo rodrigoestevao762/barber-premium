@@ -1,72 +1,129 @@
 "use client";
 
 import { motion, AnimatePresence } from "framer-motion";
+import { createPortal } from "react-dom";
 import { useState, useEffect } from "react";
-import { TrendingUp, TrendingDown, DollarSign, Plus, X, Wallet, ArrowUpRight, Scissors, Receipt, User } from "lucide-react";
+import Image from "next/image";
+import { 
+  TrendingUp, 
+  TrendingDown, 
+  DollarSign, 
+  Plus, 
+  X, 
+  Wallet, 
+  ArrowUpRight, 
+  Receipt, 
+  Shield, 
+  Sparkles, 
+  CreditCard, 
+  Banknote,
+  CheckCircle2,
+  Calendar,
+  Lock,
+  Archive,
+  Trash2
+} from "lucide-react";
+import { BARBERS } from "@/lib/barbers";
+import { OFFICIAL_SERVICES, ServiceItem } from "@/lib/services";
+import { useSession } from "next-auth/react";
+
+interface StoredExpenseItem {
+  id: number;
+  description: string;
+  amount: number;
+  category: "INSUMOS" | "FIXO" | "OUTROS";
+  date: string;
+}
 
 export default function FinanceiroPage() {
+  const { data: session } = useSession();
+  const userRole = (session?.user as any)?.role || "ADMIN";
+  const isAdmin = userRole === "ADMIN";
+
   const [loading, setLoading] = useState(true);
-  
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => { setMounted(true); }, []);
+
   // Modais
-  const [isModalOpen, setIsModalOpen] = useState(false);
-  const [desc, setDesc] = useState("");
-  const [amount, setAmount] = useState("");
+  const [isExpenseModalOpen, setIsExpenseModalOpen] = useState(false);
+  const [expenseDesc, setExpenseDesc] = useState("");
+  const [expenseAmount, setExpenseAmount] = useState("");
+  const [expenseCategory, setExpenseCategory] = useState<"INSUMOS" | "FIXO" | "OUTROS">("INSUMOS");
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const [isValeModalOpen, setIsValeModalOpen] = useState(false);
-  const [valeDesc, setValeDesc] = useState("");
-  const [valeAmount, setValeAmount] = useState("");
-
   const [isWalkInModalOpen, setIsWalkInModalOpen] = useState(false);
-  const [selectedBarber, setSelectedBarber] = useState<any>(null);
-  const [services, setServices] = useState<any[]>([]);
+  const [selectedServiceId, setSelectedServiceId] = useState<string>("corte");
+  const [paymentMethod, setPaymentMethod] = useState<string>("PIX");
+  const [toastMessage, setToastMessage] = useState<string | null>(null);
 
-  // Estado das Abas: "GERAL" ou o ID do barbeiro
-  const [activeTab, setActiveTab] = useState<string | number>("GERAL");
-  
-  // Date filter
+  // Date filter (padrão dia de hoje)
   const [selectedDate, setSelectedDate] = useState(() => {
     const d = new Date();
-    return d.toISOString().split('T')[0];
+    const year = d.getFullYear();
+    const month = String(d.getMonth() + 1).padStart(2, "0");
+    const day = String(d.getDate()).padStart(2, "0");
+    return `${year}-${month}-${day}`;
   });
 
-  // Dados Globais
-  const [expenses, setExpenses] = useState<any[]>([]); 
-  const [barbers, setBarbers] = useState<any[]>([]);
+  // Estado do Caixa de Lucas Augusto
+  const [cutsToday, setCutsToday] = useState(0);
+  const [grossRevenue, setGrossRevenue] = useState(0);
+  const [isCaixaClosed, setIsCaixaClosed] = useState(false);
+  const [expenses, setExpenses] = useState<StoredExpenseItem[]>([]);
 
-  // Carrega os dados específicos do dia
+  useEffect(() => {
+    if (toastMessage) {
+      const t = setTimeout(() => setToastMessage(null), 4000);
+      return () => clearTimeout(t);
+    }
+  }, [toastMessage]);
+
+  // Carrega os dados específicos da data
   const loadDataForDate = async (dateStr: string) => {
     setLoading(true);
+
     try {
-      // Tenta buscar do localStorage primeiro
-      const storedBarbers = localStorage.getItem(`barbers_${dateStr}`);
-      const storedExpenses = localStorage.getItem(`expenses_${dateStr}`);
-      
-      if (storedBarbers) {
-        setBarbers(JSON.parse(storedBarbers));
-      } else {
-        // Estado zerado para dias novos
-        setBarbers([
-          { id: 1, name: "Maria (Dona)", cutsToday: 0, totalEarned: 0, personalExpenses: 0, isClosed: false },
-          { id: 2, name: "Pedro (Barbeiro)", cutsToday: 0, totalEarned: 0, personalExpenses: 0, isClosed: false },
-          { id: 3, name: "Lucas (Barbeiro)", cutsToday: 0, totalEarned: 0, personalExpenses: 0, isClosed: false }
-        ]);
+      // 1. Busca agendamentos da API do Dashboard para a data
+      let apiCuts = 0;
+      let apiGross = 0;
+
+      try {
+        const resDash = await fetch(`/api/dashboard?date=${dateStr}&barberId=all`);
+        if (resDash.ok) {
+          const dashData = await resDash.json();
+          if (dashData.breakdown && dashData.breakdown.length > 0) {
+            const solo = dashData.breakdown[0];
+            apiCuts = solo.completedApts || 0;
+            apiGross = solo.revenue || 0;
+          } else if (dashData.revenue !== undefined) {
+            apiGross = dashData.revenue || 0;
+            apiCuts = dashData.completedApts || 0;
+          }
+        }
+      } catch (err) {
+        console.error("Erro ao carregar dados do dashboard:", err);
       }
 
+      // 2. Local storage para status de fechamento do caixa e despesas locais
+      const storedCaixaStatus = localStorage.getItem(`caixa_status_${dateStr}`);
+      setIsCaixaClosed(storedCaixaStatus === "CLOSED");
+
+      const storedExpenses = localStorage.getItem(`expenses_${dateStr}`);
       if (storedExpenses) {
-        setExpenses(JSON.parse(storedExpenses));
+        try {
+          const parsed = JSON.parse(storedExpenses);
+          setExpenses(Array.isArray(parsed) ? parsed : []);
+        } catch (_) {
+          setExpenses([]);
+        }
       } else {
         setExpenses([]);
       }
 
-      // Buscar Serviços Reais da API para o Modal
-      const resServices = await fetch('/api/services');
-      if (resServices.ok) {
-        const jsonServices = await resServices.json();
-        setServices(jsonServices);
-      }
+      setCutsToday(apiCuts);
+      setGrossRevenue(apiGross);
     } catch (e) {
-      console.error(e);
+      console.error("Erro geral financeiro:", e);
     } finally {
       setLoading(false);
     }
@@ -76,405 +133,503 @@ export default function FinanceiroPage() {
     loadDataForDate(selectedDate);
   }, [selectedDate]);
 
-  // Função helper para salvar estado atual no localStorage
-  const saveToLocal = (newBarbers: any[], newExpenses: any[]) => {
-    localStorage.setItem(`barbers_${selectedDate}`, JSON.stringify(newBarbers));
-    localStorage.setItem(`expenses_${selectedDate}`, JSON.stringify(newExpenses));
-  };
-
-  const handleRegisterService = (service: any) => {
-    if (!selectedBarber) return;
-    setIsSubmitting(true);
+  // Fechar ou Reabrir Caixa
+  const handleToggleCaixa = () => {
+    const newStatus = !isCaixaClosed;
+    const dateFormatted = selectedDate.split("-").reverse().join("/");
     
-    setTimeout(() => {
-      const newBarbers = barbers.map(b => 
-        b.id === selectedBarber.id 
-          ? { ...b, cutsToday: b.cutsToday + 1, totalEarned: b.totalEarned + service.price } 
-          : b
-      );
-      setBarbers(newBarbers);
-      saveToLocal(newBarbers, expenses);
+    if (newStatus) {
+      if (!window.confirm(`Deseja registrar o fechamento do caixa do dia ${dateFormatted}?`)) return;
+      localStorage.setItem(`caixa_status_${selectedDate}`, "CLOSED");
+      setIsCaixaClosed(true);
+      setToastMessage(`Caixa do dia ${dateFormatted} fechado com sucesso.`);
+    } else {
+      if (!window.confirm(`Deseja reabrir o caixa do dia ${dateFormatted}?`)) return;
+      localStorage.removeItem(`caixa_status_${selectedDate}`);
+      setIsCaixaClosed(false);
+      setToastMessage(`Caixa do dia ${dateFormatted} reaberto para lançamentos.`);
+    }
+  };
+
+  // Registrar Atendimento Balcão diretamente no caixa de Lucas Augusto
+  const handleRegisterWalkIn = async () => {
+    if (isCaixaClosed) {
+      alert("O caixa deste dia está fechado. Reabra o caixa para registrar novos atendimentos.");
+      return;
+    }
+
+    const chosenService = OFFICIAL_SERVICES.find(s => s.id === selectedServiceId) || OFFICIAL_SERVICES[0];
+    setIsSubmitting(true);
+
+    try {
+      const now = new Date();
+      const timeStr = `${String(now.getHours()).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")}:00`;
       
+      const res = await fetch("/api/appointments", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          serviceId: chosenService.id,
+          barberId: BARBERS[0].id,
+          date: `${selectedDate}T${timeStr}-03:00`,
+          isWalkIn: true,
+          status: "COMPLETED",
+          clientName: "Cliente Balcão",
+          paymentMethod,
+        }),
+      });
+
+      if (!res.ok) {
+        throw new Error("Falha ao registrar serviço");
+      }
+
       setIsWalkInModalOpen(false);
+      await loadDataForDate(selectedDate);
+      setToastMessage(`Ritual "${chosenService.name}" de R$ ${chosenService.price.toFixed(2)} lançado com sucesso no caixa!`);
+    } catch (e) {
+      console.error("Erro ao registrar atendimento balcão:", e);
+      alert("Erro ao registrar atendimento no caixa.");
+    } finally {
       setIsSubmitting(false);
-    }, 300);
-  };
-
-  const handleReopenCaixa = () => {
-    const activeBarber = barbers.find(b => b.id === activeTab);
-    if (!activeBarber || !activeBarber.isClosed) return;
-
-    if (window.confirm(`Tem certeza que deseja REABRIR o caixa de ${activeBarber.name} para o dia ${selectedDate.split('-').reverse().join('/')}?`)) {
-      const newBarbers = barbers.map(b => 
-        b.id === activeTab 
-          ? { ...b, isClosed: false } 
-          : b
-      );
-      setBarbers(newBarbers);
-      saveToLocal(newBarbers, expenses);
     }
   };
 
-  const handleCloseCaixa = () => {
-    const activeBarber = barbers.find(b => b.id === activeTab);
-    if (!activeBarber || activeBarber.isClosed) return;
-
-    if (window.confirm(`Tem certeza que deseja fechar o caixa de ${activeBarber.name} para o dia ${selectedDate.split('-').reverse().join('/')}? Isso travará novos lançamentos hoje.`)) {
-      const newBarbers = barbers.map(b => 
-        b.id === activeTab 
-          ? { ...b, isClosed: true } 
-          : b
-      );
-      setBarbers(newBarbers);
-      saveToLocal(newBarbers, expenses);
-    }
-  };
-
-  // Lançar Despesa Geral (Luz, Água)
+  // Lançar Despesa do Studio
   const handleAddExpense = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!expenseDesc || !expenseAmount) return;
+
     setIsSubmitting(true);
-    setTimeout(() => {
-      const newExpense = { id: Date.now(), description: desc, amount: Number(amount), type: "FIXO", date: new Date().toISOString() };
-      const newExpenses = [newExpense, ...expenses];
-      
-      setExpenses(newExpenses);
-      saveToLocal(barbers, newExpenses);
-      
-      setDesc("");
-      setAmount("");
-      setIsModalOpen(false);
-      setIsSubmitting(false);
-    }, 400);
-  };
-
-  // Lançar Vale/Despesa do Barbeiro
-  const handleAddVale = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setIsSubmitting(true);
-    setTimeout(() => {
-      const activeBarber = barbers.find(b => b.id === activeTab);
-      if (!activeBarber) return;
-
-      // 1. Adiciona o vale na conta do barbeiro
-      const newBarbers = barbers.map(b => 
-        b.id === activeTab 
-          ? { ...b, personalExpenses: b.personalExpenses + Number(valeAmount) } 
-          : b
-      );
-
-      // 2. Adiciona o vale nas despesas gerais da barbearia
-      const newExpense = { 
-        id: Date.now(), 
-        description: `Vale/Desconto: ${activeBarber.name} (${valeDesc})`, 
-        amount: Number(valeAmount), 
-        type: "VALE",
-        date: new Date().toISOString() 
+    try {
+      const newExpense: StoredExpenseItem = {
+        id: Date.now(),
+        description: expenseDesc,
+        amount: parseFloat(expenseAmount),
+        category: expenseCategory,
+        date: new Date().toISOString(),
       };
-      const newExpenses = [newExpense, ...expenses];
 
-      setBarbers(newBarbers);
-      setExpenses(newExpenses);
-      saveToLocal(newBarbers, newExpenses);
+      const updated = [newExpense, ...expenses];
+      setExpenses(updated);
+      localStorage.setItem(`expenses_${selectedDate}`, JSON.stringify(updated));
 
-      setValeDesc("");
-      setValeAmount("");
-      setIsValeModalOpen(false);
+      setExpenseDesc("");
+      setExpenseAmount("");
+      setIsExpenseModalOpen(false);
+      setToastMessage(`Despesa de R$ ${newExpense.amount.toFixed(2)} cadastrada com sucesso.`);
+    } catch (err) {
+      console.error("Erro ao salvar despesa:", err);
+    } finally {
       setIsSubmitting(false);
-    }, 400);
+    }
   };
 
-  if (loading) return (
-    <div className="flex h-[60vh] items-center justify-center">
-      <motion.div  >
-        <Scissors className="w-12 h-12 text-[#C88E70]" />
-      </motion.div>
-    </div>
-  );
+  // Excluir despesa
+  const handleDeleteExpense = (id: number) => {
+    if (!window.confirm("Deseja remover este registro de despesa?")) return;
+    const updated = expenses.filter(e => e.id !== id);
+    setExpenses(updated);
+    localStorage.setItem(`expenses_${selectedDate}`, JSON.stringify(updated));
+    setToastMessage("Despesa removida.");
+  };
 
-  // --- MATEMÁTICA DA VISÃO GERAL ---
-  const faturamentoBruto = barbers.reduce((acc, curr) => acc + curr.totalEarned, 0); // Soma de tudo que todos produziram
-  const totalExpenses = expenses.reduce((acc, curr) => acc + curr.amount, 0); // Todas as saídas de dinheiro (Custos + Vales)
-  
-  // Como o barbeiro recebe 100% da produção dele abatendo apenas vales, o valor total devido aos barbeiros é o Faturamento Bruto.
-  // O lucro da casa se houver entradas que não foram feitas por barbeiros específicos (ou aluguéis de cadeira).
-  const despesasFixas = expenses.filter(e => e.type === "FIXO").reduce((acc, curr) => acc + curr.amount, 0);
-  const lucroBarbearia = faturamentoBruto - faturamentoBruto - despesasFixas; // Isso ficará negativo se a barbearia só tiver despesas e não retiver % dos cortes.
+  // Cálculos Financeiros Solo Studio
+  const totalExpenses = expenses.reduce((acc, curr) => acc + curr.amount, 0);
+  const lucroLiquidoReal = grossRevenue - totalExpenses;
+  const ticketMedio = cutsToday > 0 ? grossRevenue / cutsToday : 0;
+
+  if (loading) {
+    return (
+      <div className="flex h-[60vh] items-center justify-center">
+        <div className="animate-spin text-[#DFBA73]">
+          <Sparkles className="w-10 h-10" />
+        </div>
+      </div>
+    );
+  }
 
   return (
-    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="max-w-[1200px] mx-auto space-y-8">
+    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="max-w-[1200px] mx-auto space-y-8 pb-16">
       
-      {/* HEADER & TABS */}
-      <div className="flex flex-col space-y-6">
-        <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
-          <div>
-            <h2 className="text-4xl font-serif text-white tracking-tight">Gestão <span className="text-[#C88E70] italic">Financeira</span></h2>
-            <p className="text-gray-400 mt-2 text-sm">Controle geral da barbearia e fechamento de caixa individual de cada profissional.</p>
+      {/* Toast Notification */}
+      <AnimatePresence>
+        {toastMessage && (
+          <motion.div
+            initial={{ opacity: 0, y: -20 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -20 }}
+            className="fixed top-6 right-6 z-[100] bg-[#080A0E] border border-[#DFBA73] text-[#F5D799] px-5 py-3 rounded-2xl shadow-2xl shadow-black/80 flex items-center gap-3 text-xs font-mono font-semibold"
+          >
+            <CheckCircle2 className="w-4 h-4 text-[#DFBA73]" />
+            <span>{toastMessage}</span>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* HEADER & DATE SELECTOR */}
+      <div className="flex flex-col md:flex-row md:items-end justify-between gap-6 border-b border-white/5 pb-6">
+        <div>
+          <div className="flex items-center gap-2 mb-2 flex-wrap">
+            <span className="text-[10px] bg-gradient-to-r from-[#F5D799] via-[#DFBA73] to-[#B88B38] text-black font-bold uppercase tracking-widest px-3 py-1 rounded-full flex items-center gap-1.5 shadow-sm">
+              <Shield className="w-3 h-3 text-black" /> Gestão Solo • 100% Studio
+            </span>
+            <span className="text-[10px] bg-white/5 border border-white/10 text-gray-400 uppercase tracking-widest px-2.5 py-1 rounded-full font-mono">
+              Lucas Augusto • Fundador
+            </span>
           </div>
-          <div className="flex flex-col gap-1 w-full md:w-auto">
-            <label className="text-xs text-gray-400 uppercase tracking-widest">Filtrar por data:</label>
+
+          <h2 className="text-3xl md:text-4xl font-serif text-white tracking-tight">
+            Gestão <span className="bg-gradient-to-r from-[#F5D799] via-[#DFBA73] to-[#B88B38] bg-clip-text text-transparent italic">Financeira</span>
+          </h2>
+          <p className="text-gray-400 mt-1 text-sm font-light">
+            Controle do caixa integral, faturamento 100% do estúdio e conciliação de custos operacionais.
+          </p>
+        </div>
+
+        {/* Date Filter & Quick Actions */}
+        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
+          <div className="flex items-center gap-2 bg-[#080A0E] border border-white/10 rounded-2xl px-4 py-2.5 shadow-inner">
+            <Calendar className="w-4 h-4 text-[#DFBA73] shrink-0" />
             <input 
               type="date" 
               value={selectedDate}
               onChange={(e) => setSelectedDate(e.target.value)}
-              className="bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-white outline-none focus:border-[#C88E70] w-full md:w-auto [&::-webkit-calendar-picker-indicator]:invert"
+              className="bg-transparent text-white text-xs font-mono outline-none cursor-pointer [&::-webkit-calendar-picker-indicator]:invert"
             />
           </div>
-        </div>
 
-        {/* NAVEGAÇÃO DAS ABAS */}
-        <div className="flex items-center gap-2 overflow-x-auto pb-2 scrollbar-hide border-b border-white/10">
           <button 
-            onClick={() => setActiveTab("GERAL")}
-            className={`px-6 py-3 font-bold uppercase tracking-widest text-xs transition-colors relative whitespace-nowrap ${activeTab === "GERAL" ? "text-[#C88E70]" : "text-gray-500 hover:text-white"}`}
+            type="button"
+            onClick={() => setIsWalkInModalOpen(true)}
+            className="px-5 py-2.5 rounded-2xl bg-gradient-to-r from-[#F5D799] via-[#DFBA73] to-[#B88B38] text-black font-bold text-xs uppercase font-mono tracking-wider hover:brightness-110 transition-all flex items-center justify-center gap-2 shadow-lg shadow-[#DFBA73]/20 cursor-pointer"
           >
-            Visão Geral (Casa)
-            {activeTab === "GERAL" && <motion.div layoutId="activeTab" className="absolute bottom-0 left-0 right-0 h-[2px] bg-[#C88E70]" />}
+            <Plus className="w-3.5 h-3.5" />
+            <span>+ Cliente Balcão</span>
           </button>
-          
-          {barbers.map(barber => (
-            <button 
-              key={barber.id}
-              onClick={() => setActiveTab(barber.id)}
-              className={`px-6 py-3 font-bold uppercase tracking-widest text-xs transition-colors relative whitespace-nowrap flex items-center gap-2 ${activeTab === barber.id ? "text-white" : "text-gray-500 hover:text-white"}`}
-            >
-              <User className="w-3 h-3" />
-              {barber.name.split(" ")[0]}
-              {activeTab === barber.id && <motion.div layoutId="activeTab" className="absolute bottom-0 left-0 right-0 h-[2px] bg-white" />}
-            </button>
-          ))}
+
+          <button 
+            type="button"
+            onClick={() => setIsExpenseModalOpen(true)}
+            className="px-4 py-2.5 rounded-2xl bg-white/5 hover:bg-white/10 border border-white/10 text-gray-300 hover:text-white font-mono text-xs uppercase tracking-wider transition-all flex items-center justify-center gap-2 cursor-pointer"
+          >
+            <TrendingDown className="w-3.5 h-3.5 text-rose-400" />
+            <span>Lançar Custo</span>
+          </button>
         </div>
       </div>
 
-      <AnimatePresence mode="wait">
+      {/* BENTO GRID: MÉTRICAS FINANCEIRAS DO STUDIO */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
         
-        {/* =========================================================================
-                                 ABA: VISÃO GERAL (CASA)
-           ========================================================================= */}
-        {activeTab === "GERAL" && (
-          <motion.div 
-            key="geral"
-            initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }}
-            className="space-y-8"
-          >
-            <div className="flex justify-end">
-              <button 
-                onClick={() => setIsModalOpen(true)}
-                className="px-6 py-3 bg-[#C88E70]/10 border border-[#C88E70]/30 text-[#C88E70] hover:bg-[#C88E70] hover:text-[#050B14] font-bold uppercase tracking-widest text-xs rounded-lg transition-colors flex items-center gap-2"
+        {/* Card 1: Faturamento Bruto (100% do Studio) */}
+        <div className="bg-[#080A0E] border border-white/10 rounded-3xl p-6 relative overflow-hidden group hover:border-[#DFBA73]/40 transition-all">
+          <div className="absolute top-0 right-0 w-28 h-28 bg-[#DFBA73]/5 rounded-full blur-2xl pointer-events-none" />
+          <div className="flex items-center justify-between mb-4">
+            <span className="text-[10px] font-mono uppercase tracking-widest text-gray-400">
+              Entradas Brutas (100%)
+            </span>
+            <div className="w-9 h-9 rounded-xl bg-[#DFBA73]/10 border border-[#DFBA73]/20 flex items-center justify-center text-[#DFBA73]">
+              <ArrowUpRight className="w-4 h-4" />
+            </div>
+          </div>
+          <h3 className="text-3xl font-serif text-white tracking-tight mb-1">
+            R$ {grossRevenue.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+          </h3>
+          <p className="text-xs text-gray-400 font-light">
+            {cutsToday} {cutsToday === 1 ? "atendimento realizado" : "atendimentos realizados"} na data.
+          </p>
+        </div>
+
+        {/* Card 2: Custos & Despesas */}
+        <div className="bg-[#080A0E] border border-white/10 rounded-3xl p-6 relative overflow-hidden group hover:border-rose-500/30 transition-all">
+          <div className="absolute top-0 right-0 w-28 h-28 bg-rose-500/5 rounded-full blur-2xl pointer-events-none" />
+          <div className="flex items-center justify-between mb-4">
+            <span className="text-[10px] font-mono uppercase tracking-widest text-rose-400/90 font-medium">
+              Custos & Insumos
+            </span>
+            <div className="w-9 h-9 rounded-xl bg-rose-500/10 border border-rose-500/20 flex items-center justify-center text-rose-400">
+              <TrendingDown className="w-4 h-4" />
+            </div>
+          </div>
+          <h3 className="text-3xl font-serif text-rose-400 tracking-tight mb-1">
+            - R$ {totalExpenses.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+          </h3>
+          <p className="text-xs text-gray-400 font-light">
+            {expenses.length} {expenses.length === 1 ? "despesa lançada" : "despesas lançadas"} hoje.
+          </p>
+        </div>
+
+        {/* Card 3: Lucro Líquido Real */}
+        <div className="bg-gradient-to-br from-[#080A0E] via-[#050608] to-emerald-950/20 border border-emerald-500/30 rounded-3xl p-6 relative overflow-hidden group hover:border-emerald-500/50 transition-all">
+          <div className="absolute top-0 right-0 w-32 h-32 bg-emerald-500/10 rounded-full blur-2xl pointer-events-none" />
+          <div className="flex items-center justify-between mb-4">
+            <span className="text-[10px] font-mono uppercase tracking-widest text-emerald-400 font-semibold">
+              Lucro Líquido Real
+            </span>
+            <div className="w-9 h-9 rounded-xl bg-emerald-500/20 border border-emerald-500/40 flex items-center justify-center text-emerald-300">
+              <Wallet className="w-4 h-4" />
+            </div>
+          </div>
+          <h3 className="text-3xl font-serif text-emerald-400 tracking-tight mb-1">
+            R$ {lucroLiquidoReal.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+          </h3>
+          <p className="text-xs text-emerald-400/70 font-light">
+            Faturamento bruto menos custos operacionais.
+          </p>
+        </div>
+
+        {/* Card 4: Ticket Médio */}
+        <div className="bg-[#080A0E] border border-white/10 rounded-3xl p-6 relative overflow-hidden group hover:border-[#DFBA73]/40 transition-all">
+          <div className="absolute top-0 right-0 w-28 h-28 bg-[#DFBA73]/5 rounded-full blur-2xl pointer-events-none" />
+          <div className="flex items-center justify-between mb-4">
+            <span className="text-[10px] font-mono uppercase tracking-widest text-gray-400">
+              Ticket Médio
+            </span>
+            <div className="w-9 h-9 rounded-xl bg-white/5 border border-white/10 flex items-center justify-center text-[#DFBA73]">
+              <Sparkles className="w-4 h-4" />
+            </div>
+          </div>
+          <h3 className="text-3xl font-serif text-white tracking-tight mb-1">
+            R$ {ticketMedio.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+          </h3>
+          <p className="text-xs text-gray-400 font-light">
+            Média de receita por cliente atendido.
+          </p>
+        </div>
+      </div>
+
+      {/* CARD CENTRAL DE FECHAMENTO & STATUS DO CAIXA */}
+      <div className={`p-8 md:p-10 rounded-3xl border transition-all relative overflow-hidden ${
+        isCaixaClosed 
+          ? "bg-[#080A0E]/80 border-white/10" 
+          : "bg-gradient-to-r from-[#080A0E] via-[#0b0e14] to-[#080A0E] border-[#DFBA73]/30 shadow-xl shadow-black/60"
+      }`}>
+        <div className="absolute top-0 right-0 w-80 h-80 bg-[#DFBA73]/5 rounded-full blur-3xl pointer-events-none" />
+
+        <div className="flex flex-col md:flex-row items-center justify-between gap-8 relative z-10">
+          
+          {/* Informações de Lucas Augusto */}
+          <div className="flex items-center gap-5">
+            <div className="relative w-20 h-20 rounded-2xl overflow-hidden border-2 border-[#DFBA73] shadow-lg shadow-[#DFBA73]/20 shrink-0">
+              <Image 
+                src={BARBERS[0].avatar} 
+                alt="Lucas Augusto" 
+                fill 
+                className="object-cover object-top" 
+                sizes="80px"
+              />
+            </div>
+            <div>
+              <div className="flex items-center gap-2 mb-1">
+                <h3 className="text-2xl font-serif text-white">{BARBERS[0].name}</h3>
+                <span className="text-[9px] bg-gradient-to-r from-[#F5D799] to-[#DFBA73] text-black px-2 py-0.5 rounded-full font-bold uppercase font-mono tracking-wider">
+                  Master Barber
+                </span>
+              </div>
+              <p className="text-xs text-[#F5D799] font-mono">
+                Caixa do Studio • 100% de Retenção
+              </p>
+              <div className="flex items-center gap-2 mt-2">
+                <span className={`w-2 h-2 rounded-full ${isCaixaClosed ? "bg-rose-400" : "bg-emerald-400 animate-pulse"}`} />
+                <span className="text-xs font-mono uppercase tracking-wider text-gray-400">
+                  {isCaixaClosed ? "Caixa Fechado para este dia" : "Caixa Aberto • Recebendo lançamentos"}
+                </span>
+              </div>
+            </div>
+          </div>
+
+          {/* Saldo Líquido do Dia & Botão de Fechamento */}
+          <div className="flex flex-col items-center md:items-end gap-3 text-center md:text-right">
+            <div>
+              <span className="text-[10px] font-mono uppercase tracking-widest text-gray-400 block mb-1">
+                Saldo Disponível em Caixa Hoje
+              </span>
+              <span className="text-4xl md:text-5xl font-serif text-white tracking-tight">
+                R$ {lucroLiquidoReal.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+              </span>
+            </div>
+
+            <div className="flex items-center gap-3 mt-2">
+              <button
+                type="button"
+                onClick={handleToggleCaixa}
+                className={`px-6 py-3 rounded-xl font-bold uppercase text-xs font-mono tracking-wider transition-all duration-300 flex items-center gap-2 cursor-pointer ${
+                  isCaixaClosed
+                    ? "bg-white/10 hover:bg-white/20 text-white border border-white/20"
+                    : "bg-gradient-to-r from-[#F5D799] via-[#DFBA73] to-[#B88B38] text-black hover:brightness-110 shadow-lg shadow-[#DFBA73]/25"
+                }`}
               >
-                <TrendingDown className="w-4 h-4" /> Despesa da Barbearia
+                <Archive className="w-4 h-4" />
+                <span>{isCaixaClosed ? "Reabrir Caixa do Dia" : "Fechar Caixa do Dia"}</span>
               </button>
             </div>
+          </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-              {/* Faturamento Bruto */}
-              <div className="bg-white/5 border border-white/10 rounded-2xl p-6 ">
-                 <p className="text-gray-400 text-[10px] tracking-widest uppercase mb-4 flex items-center gap-2">
-                    <ArrowUpRight className="w-4 h-4" /> Entradas (Bruto)
-                 </p>
-                 <h2 className="text-3xl font-serif text-white/80 mb-1">R$ {faturamentoBruto.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</h2>
-                 <p className="text-xs text-gray-500">Produção total de todos os barbeiros.</p>
-              </div>
+        </div>
+      </div>
 
-              {/* Valores Pagos */}
-              <div className="bg-white/5 border border-white/10 rounded-2xl p-6 ">
-                 <p className="text-gray-400 text-[10px] tracking-widest uppercase mb-4 flex items-center gap-2">
-                    <Scissors className="w-4 h-4" /> Produção da Equipe
-                 </p>
-                 <h2 className="text-3xl font-serif text-white/80 mb-1">R$ {faturamentoBruto.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</h2>
-                 <p className="text-xs text-gray-500">Valor total movimentado nos caixas individuais.</p>
-              </div>
+      {/* TABELA DE SAÍDAS & DESPESAS REGISTRADAS */}
+      <div className="bg-[#080A0E] border border-white/10 rounded-3xl p-6 md:p-8 space-y-6">
+        <div className="flex items-center justify-between border-b border-white/5 pb-4">
+          <div>
+            <h3 className="text-xl font-serif text-white flex items-center gap-2">
+              <Receipt className="w-5 h-5 text-[#DFBA73]" /> Extrato de Despesas e Insumos do Studio
+            </h3>
+            <p className="text-xs text-gray-400 mt-1 font-light">
+              Registros de reposição de insumos nobres (L&apos;Occitane en Provence, K&apos;enzza) e custos operacionais.
+            </p>
+          </div>
 
-              {/* Lucro da Casa */}
-              <div className="bg-[#C88E70]/10 border border-[#C88E70]/40 rounded-2xl p-6  relative overflow-hidden">
-                <div className="absolute top-0 right-0 w-32 h-32 bg-[#C88E70]/20 blur-2xl" />
-                <p className="text-[#C88E70] font-bold text-[10px] tracking-widest uppercase mb-4 flex items-center gap-2 relative z-10">
-                   <Wallet className="w-4 h-4" /> Saldo da Barbearia
-                </p>
-                <h2 className="text-4xl font-serif text-white mb-2 relative z-10">R$ {lucroBarbearia.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</h2>
-                <p className="text-xs text-gray-400 relative z-10">Saldo líquido após custos fixos.</p>
-              </div>
-            </div>
+          <button
+            type="button"
+            onClick={() => setIsExpenseModalOpen(true)}
+            className="px-4 py-2 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-xs font-mono text-gray-300 hover:text-white uppercase tracking-wider transition-all flex items-center gap-1.5 cursor-pointer"
+          >
+            <Plus className="w-3.5 h-3.5 text-[#DFBA73]" />
+            <span>Adicionar Despesa</span>
+          </button>
+        </div>
 
-            {/* EXPENSES LIST (CAIXA FÍSICO) */}
-            <div className="bg-white/5 border border-white/10 rounded-3xl p-8 ">
-              <h3 className="text-xl font-serif text-white mb-6 flex items-center gap-2">
-                <TrendingDown className="w-5 h-5 text-red-400" /> Saídas do Caixa da Casa (Hoje)
-              </h3>
-              
-              {expenses.length === 0 ? (
-                <div className="text-center py-12 text-gray-500 italic">Nenhuma saída registrada no caixa hoje.</div>
-              ) : (
-                <div className="space-y-3">
-                  {expenses.map((exp: any) => (
-                    <div key={exp.id} className="flex items-center justify-between p-4 rounded-xl bg-black/20 border border-white/5">
-                      <div className="flex items-center gap-4">
-                        <div className={`w-10 h-10 rounded-full flex items-center justify-center ${exp.type === 'VALE' ? 'bg-orange-500/10' : 'bg-red-500/10'}`}>
-                          <DollarSign className={`w-4 h-4 ${exp.type === 'VALE' ? 'text-orange-400' : 'text-red-400'}`} />
-                        </div>
-                        <div>
-                          <h4 className="text-white font-medium text-sm">{exp.description}</h4>
-                          <span className={`text-[9px] uppercase tracking-wider font-bold px-2 py-0.5 rounded-full mt-1 inline-block ${exp.type === 'VALE' ? 'bg-orange-500/20 text-orange-300' : 'bg-white/10 text-gray-400'}`}>
-                            {exp.type === 'VALE' ? 'Devido pelo Barbeiro' : 'Custo Fixo'}
-                          </span>
-                        </div>
-                      </div>
-                      <span className="text-lg font-serif text-red-400">
-                        - R$ {exp.amount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+        {expenses.length === 0 ? (
+          <div className="text-center py-12 text-gray-500 font-light italic bg-white/[0.01] rounded-2xl border border-dashed border-white/5">
+            Nenhuma despesa ou insumo registrado para esta data ({selectedDate.split("-").reverse().join("/")}).
+          </div>
+        ) : (
+          <div className="space-y-3">
+            {expenses.map((exp) => (
+              <div 
+                key={exp.id} 
+                className="flex items-center justify-between p-4 rounded-2xl bg-white/[0.02] border border-white/5 hover:border-white/15 transition-all group"
+              >
+                <div className="flex items-center gap-3.5">
+                  <div className="w-10 h-10 rounded-xl bg-rose-500/10 border border-rose-500/20 flex items-center justify-center text-rose-400 shrink-0">
+                    <TrendingDown className="w-4 h-4" />
+                  </div>
+                  <div>
+                    <h4 className="text-sm font-medium text-white">{exp.description}</h4>
+                    <div className="flex items-center gap-2 mt-0.5">
+                      <span className="text-[9px] font-mono uppercase tracking-wider px-2 py-0.5 rounded-full bg-white/5 text-gray-400">
+                        {exp.category === "INSUMOS" ? "Insumos & Cosméticos" : exp.category === "FIXO" ? "Custo Operacional Fixo" : "Outros Custos"}
+                      </span>
+                      <span className="text-[10px] text-gray-500 font-mono">
+                        {new Date(exp.date).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}
                       </span>
                     </div>
-                  ))}
+                  </div>
                 </div>
-              )}
-            </div>
 
-            {/* ADMIN RESUMO DOS BARBEIROS */}
-            <div>
-              <h3 className="text-xl font-serif text-white mb-6 mt-12 flex items-center gap-2">
-                <User className="w-5 h-5 text-[#C88E70]" /> Resumo de Fechamento da Equipe
-              </h3>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                {barbers.map(barber => {
-                  const liquidoAPagar = barber.totalEarned - barber.personalExpenses;
-                  return (
-                    <div key={`summary-${barber.id}`} className="bg-black/40 border border-white/5 rounded-2xl p-5 hover:border-white/20 transition-colors">
-                      <div className="flex justify-between items-center mb-4 border-b border-white/10 pb-4">
-                        <h4 className="text-white font-bold">{barber.name}</h4>
-                        <button 
-                          onClick={() => setActiveTab(barber.id)}
-                          className="text-[10px] bg-white/5 hover:bg-white/10 text-gray-300 px-3 py-1.5 rounded-lg uppercase tracking-widest transition-colors"
-                        >
-                          Ver Detalhes
-                        </button>
-                      </div>
-                      <div className="space-y-2 mb-4">
-                        <div className="flex justify-between text-xs text-gray-500">
-                          <span>Saldo dos Cortes:</span>
-                          <span className="text-green-400">+ R$ {barber.totalEarned.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
-                        </div>
-                        <div className="flex justify-between text-xs text-gray-500">
-                          <span>Vales/Descontos:</span>
-                          <span className="text-red-400">- R$ {barber.personalExpenses.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
-                        </div>
-                      </div>
-                      <div className="pt-3 border-t border-white/10 flex justify-between items-center">
-                        <span className="text-[10px] text-gray-400 uppercase tracking-widest font-bold">Saldo Líquido</span>
-                        <span className="text-xl font-serif text-white">R$ {liquidoAPagar.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
-                      </div>
-                    </div>
-                  );
-                })}
+                <div className="flex items-center gap-4">
+                  <span className="text-base font-serif text-rose-400 font-medium">
+                    - R$ {exp.amount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => handleDeleteExpense(exp.id)}
+                    className="p-2 text-gray-500 hover:text-rose-400 transition-colors opacity-70 hover:opacity-100 cursor-pointer"
+                    title="Excluir despesa"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </button>
+                </div>
               </div>
-            </div>
-          </motion.div>
+            ))}
+          </div>
         )}
-
-        {/* =========================================================================
-                                ABA: CAIXA INDIVIDUAL DO BARBEIRO
-           ========================================================================= */}
-        {typeof activeTab === "number" && (
-          <motion.div 
-            key={`barber-${activeTab}`}
-            initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }}
-            className="space-y-6"
-          >
-            {(() => {
-              const barber = barbers.find(b => b.id === activeTab)!;
-              const aReceberLivre = barber.totalEarned - barber.personalExpenses;
-
-              return (
-                <>
-                  <div className="flex justify-between items-end bg-gradient-to-r from-white/5 to-transparent border border-white/10 p-8 rounded-3xl relative overflow-hidden">
-                    <div className="relative z-10">
-                      <div className="flex items-center gap-3 mb-2">
-                        <h2 className="text-3xl font-serif text-white">{barber.name}</h2>
-                        <span className="text-[10px] bg-white/10 text-white px-3 py-1 rounded-full uppercase tracking-wider font-bold">
-                          CAIXA INDIVIDUAL
-                        </span>
-                      </div>
-                      <p className="text-gray-400 text-sm">Resumo do dia e fechamento.</p>
-                    </div>
-                    <div className="flex gap-3 relative z-10">
-                      {!barber.isClosed && (
-                        <>
-                          <button 
-                            onClick={() => { setSelectedBarber(barber); setIsWalkInModalOpen(true); }}
-                            className="px-6 py-3 bg-white/5 hover:bg-white/10 border border-white/10 text-white font-bold uppercase tracking-widest text-xs rounded-lg transition-colors flex items-center gap-2"
-                          >
-                            <Plus className="w-4 h-4 text-[#C88E70]" /> Registrar Serviço
-                          </button>
-                          <button 
-                            onClick={() => setIsValeModalOpen(true)}
-                            className="px-6 py-3 bg-red-500/10 hover:bg-red-500/20 border border-red-500/30 text-red-400 font-bold uppercase tracking-widest text-xs rounded-lg transition-colors flex items-center gap-2"
-                          >
-                            <Receipt className="w-4 h-4" /> Lançar Despesa / Vale
-                          </button>
-                        </>
-                      )}
-                    </div>
-                  </div>
-
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                    <div className="bg-white/5 border border-white/5 p-6 rounded-2xl">
-                      <p className="text-[10px] text-gray-500 uppercase tracking-widest mb-1">Cortes Hoje</p>
-                      <p className="text-2xl font-serif text-white">{barber.cutsToday}</p>
-                    </div>
-                    <div className="bg-green-500/5 border border-green-500/10 p-6 rounded-2xl">
-                      <p className="text-[10px] text-green-500 uppercase tracking-widest mb-1">Produção (Saldo)</p>
-                      <p className="text-2xl font-serif text-green-400">+ R$ {barber.totalEarned.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
-                    </div>
-                    <div className="bg-red-500/5 border border-red-500/10 p-6 rounded-2xl">
-                      <p className="text-[10px] text-red-500 uppercase tracking-widest mb-1">Despesas/Vales</p>
-                      <p className="text-2xl font-serif text-red-400">- R$ {barber.personalExpenses.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
-                    </div>
-                  </div>
-
-                  <div className={`bg-gradient-to-br from-blue-900/20 to-black border border-blue-500/30 rounded-3xl p-10 flex flex-col items-center justify-center text-center relative overflow-hidden ${barber.isClosed ? 'opacity-70' : ''}`}>
-                    {barber.isClosed && (
-                      <div className="absolute inset-0 bg-black/40 flex flex-col items-center justify-center z-10 ">
-                        <h2 className="text-4xl font-serif text-white/50 transform -rotate-12 uppercase tracking-[0.3em] font-bold border-4 border-white/20 px-8 py-4 rounded-xl mb-6">Caixa Fechado</h2>
-                        <button 
-                          onClick={handleReopenCaixa}
-                          className="bg-white/10 hover:bg-white/20 text-white font-bold uppercase tracking-widest text-xs px-6 py-3 rounded-full border border-white/20 transition-all hover:scale-105"
-                        >
-                          Reabrir Caixa
-                        </button>
-                      </div>
-                    )}
-                    <p className="text-blue-400 text-[10px] uppercase tracking-[0.3em] font-bold mb-4 relative z-0">Saldo Líquido do Dia</p>
-                    <h1 className="text-6xl font-serif text-white mb-8 relative z-0">R$ {aReceberLivre.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</h1>
-                    <button 
-                      onClick={handleCloseCaixa}
-                      disabled={barber.isClosed}
-                      className={`text-white font-bold uppercase tracking-widest text-sm px-12 py-4 rounded-full transition-all relative z-0 ${barber.isClosed ? 'bg-gray-700 cursor-not-allowed' : 'bg-blue-600 hover:bg-blue-500 hover:scale-105 shadow-[0_0_30px_rgba(37,99,235,0.3)]'}`}
-                    >
-                      {barber.isClosed ? 'CAIXA FECHADO' : 'Fechar Caixa do Dia'}
-                    </button>
-                  </div>
-                </>
-              );
-            })()}
-          </motion.div>
-        )}
-      </AnimatePresence>
+      </div>
 
       {/* =========================================================================
                                      MODAIS
          ========================================================================= */}
-      
-      {/* ADD DESPESA DA CASA MODAL */}
+
+      {/* MODAL 1: LANÇAR DESPESA DO STUDIO */}
       <AnimatePresence>
-        {isModalOpen && (
-          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/80 ">
-            <motion.div initial={{ scale: 0.95, opacity: 0, y: 20 }} animate={{ scale: 1, opacity: 1, y: 0 }} exit={{ scale: 0.95, opacity: 0, y: 20 }} className="bg-[#050B14] border border-[#C88E70]/30 rounded-3xl w-full max-w-md overflow-hidden shadow-2xl relative">
+        {isExpenseModalOpen && (
+          <motion.div 
+            initial={{ opacity: 0 }} 
+            animate={{ opacity: 1 }} 
+            exit={{ opacity: 0 }} 
+            className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/85 backdrop-blur-md"
+          >
+            <motion.div 
+              initial={{ scale: 0.95, opacity: 0, y: 20 }} 
+              animate={{ scale: 1, opacity: 1, y: 0 }} 
+              exit={{ scale: 0.95, opacity: 0, y: 20 }} 
+              className="bg-[#080A0E] border border-[#DFBA73]/30 rounded-3xl w-full max-w-md overflow-hidden shadow-2xl relative"
+            >
               <div className="p-8 relative z-10">
-                <button onClick={() => setIsModalOpen(false)} className="absolute top-6 right-6 text-gray-500 hover:text-white"><X className="w-5 h-5" /></button>
-                <h2 className="text-2xl font-serif text-white mb-2">Despesa <span className="text-[#C88E70] italic">da Casa</span></h2>
-                <p className="text-gray-400 text-xs mb-6">Custos gerais (Água, Luz, Aluguel). Afeta apenas o lucro da barbearia.</p>
+                <button 
+                  type="button"
+                  onClick={() => setIsExpenseModalOpen(false)} 
+                  className="absolute top-6 right-6 text-gray-400 hover:text-white p-1 cursor-pointer"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+
+                <div className="flex items-center gap-2 mb-2">
+                  <span className="text-[10px] font-mono uppercase tracking-widest px-2.5 py-0.5 rounded-full bg-rose-500/20 text-rose-400 border border-rose-500/30">
+                    Saída do Caixa
+                  </span>
+                </div>
+
+                <h2 className="text-2xl font-serif text-white mb-1">
+                  Lançar <span className="text-[#DFBA73] italic">Despesa</span>
+                </h2>
+                <p className="text-gray-400 text-xs mb-6 font-light">
+                  Registre custos fixos, insumos L&apos;Occitane / K&apos;enzza ou reposição de materiais do estúdio.
+                </p>
+
                 <form onSubmit={handleAddExpense} className="space-y-4">
-                  <input required type="text" placeholder="Descrição" value={desc} onChange={(e) => setDesc(e.target.value)} className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white outline-none focus:border-[#C88E70]" />
-                  <input required type="number" step="0.01" placeholder="Valor (R$)" value={amount} onChange={(e) => setAmount(e.target.value)} className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white outline-none focus:border-[#C88E70]" />
-                  <button type="submit" disabled={isSubmitting} className="w-full py-4 bg-[#C88E70] hover:bg-white text-black font-bold uppercase tracking-widest text-xs rounded-xl mt-4">Confirmar Custo Fixo</button>
+                  <div>
+                    <label className="block text-gray-400 text-xs uppercase font-mono tracking-wider mb-1.5">
+                      Descrição da Despesa
+                    </label>
+                    <input 
+                      required 
+                      type="text" 
+                      placeholder="Ex: Cosméticos L'Occitane, Energia, Água..." 
+                      value={expenseDesc} 
+                      onChange={(e) => setExpenseDesc(e.target.value)} 
+                      className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white text-sm outline-none focus:border-[#DFBA73]" 
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-gray-400 text-xs uppercase font-mono tracking-wider mb-1.5">
+                      Valor (R$)
+                    </label>
+                    <input 
+                      required 
+                      type="number" 
+                      step="0.01" 
+                      placeholder="0,00" 
+                      value={expenseAmount} 
+                      onChange={(e) => setExpenseAmount(e.target.value)} 
+                      className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white text-sm font-mono outline-none focus:border-[#DFBA73]" 
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-gray-400 text-xs uppercase font-mono tracking-wider mb-1.5">
+                      Categoria do Custo
+                    </label>
+                    <select
+                      value={expenseCategory}
+                      onChange={(e: any) => setExpenseCategory(e.target.value)}
+                      className="w-full bg-[#080A0E] border border-white/10 rounded-xl px-4 py-3 text-white text-sm outline-none focus:border-[#DFBA73]"
+                    >
+                      <option value="INSUMOS">Insumos & Produtos (L&apos;Occitane / K&apos;enzza)</option>
+                      <option value="FIXO">Custo Operacional Fixo (Energia / Aluguel)</option>
+                      <option value="OUTROS">Outros Custos Diversos</option>
+                    </select>
+                  </div>
+
+                  <button 
+                    type="submit" 
+                    disabled={isSubmitting} 
+                    className="w-full py-4 bg-gradient-to-r from-[#F5D799] via-[#DFBA73] to-[#B88B38] text-black font-bold uppercase font-mono tracking-widest text-xs rounded-xl mt-4 hover:brightness-110 transition-all cursor-pointer shadow-lg shadow-[#DFBA73]/20 disabled:opacity-50"
+                  >
+                    {isSubmitting ? "Cadastrando..." : "Confirmar e Deduzir do Caixa"}
+                  </button>
                 </form>
               </div>
             </motion.div>
@@ -482,58 +637,186 @@ export default function FinanceiroPage() {
         )}
       </AnimatePresence>
 
-      {/* ADD VALE DO BARBEIRO MODAL */}
-      <AnimatePresence>
-        {isValeModalOpen && selectedBarber && (
-          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/80 ">
-            <motion.div initial={{ scale: 0.95, opacity: 0, y: 20 }} animate={{ scale: 1, opacity: 1, y: 0 }} exit={{ scale: 0.95, opacity: 0, y: 20 }} className="bg-[#050B14] border border-red-500/30 rounded-3xl w-full max-w-md overflow-hidden shadow-2xl relative">
-              <div className="p-8 relative z-10">
-                <button onClick={() => setIsValeModalOpen(false)} className="absolute top-6 right-6 text-gray-500 hover:text-white"><X className="w-5 h-5" /></button>
-                <h2 className="text-2xl font-serif text-white mb-2">Vale / <span className="text-red-400 italic">Despesa Pessoal</span></h2>
-                <p className="text-gray-400 text-xs mb-6">Será descontado do acerto diário deste barbeiro e registrado na saída do caixa físico.</p>
-                <form onSubmit={handleAddVale} className="space-y-4">
-                  <input required type="text" placeholder="Ex: Adiantamento, Lanche, Lâminas..." value={valeDesc} onChange={(e) => setValeDesc(e.target.value)} className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white outline-none focus:border-red-400" />
-                  <input required type="number" step="0.01" placeholder="Valor (R$)" value={valeAmount} onChange={(e) => setValeAmount(e.target.value)} className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white outline-none focus:border-red-400" />
-                  <button type="submit" disabled={isSubmitting} className="w-full py-4 bg-red-500/20 border border-red-500/50 hover:bg-red-500 text-white font-bold uppercase tracking-widest text-xs rounded-xl mt-4">Descontar do Barbeiro</button>
-                </form>
-              </div>
-            </motion.div>
-          </motion.div>
-        )}
-      </AnimatePresence>
+      {/* MODAL 2: REGISTRAR ATENDIMENTO BALCÃO (+ CLIENTE BALCÃO) */}
+      {mounted && isWalkInModalOpen && typeof document !== "undefined" && createPortal(
+        <AnimatePresence>
+          <motion.div 
+            initial={{ opacity: 0 }} 
+            animate={{ opacity: 1 }} 
+            exit={{ opacity: 0 }} 
+            className="fixed inset-0 z-[999] flex items-center justify-center p-4 bg-black/85 backdrop-blur-md"
+          >
+            <motion.div 
+              initial={{ scale: 0.95, opacity: 0, y: 20 }} 
+              animate={{ scale: 1, opacity: 1, y: 0 }} 
+              exit={{ scale: 0.95, opacity: 0, y: 20 }} 
+              className="bg-[#080A0E] border border-[#DFBA73]/40 rounded-3xl w-full max-w-lg overflow-hidden shadow-2xl relative max-h-[90vh] flex flex-col"
+            >
+              {/* Header */}
+              <div className="p-6 md:p-8 pb-4 relative z-10 shrink-0 border-b border-white/10">
+                <button 
+                  type="button"
+                  onClick={() => setIsWalkInModalOpen(false)} 
+                  className="absolute top-6 right-6 text-gray-400 hover:text-white p-1 cursor-pointer"
+                >
+                  <X className="w-5 h-5" />
+                </button>
 
-      {/* REGISTRAR SERVIÇO (WALK-IN) MODAL */}
-      <AnimatePresence>
-        {isWalkInModalOpen && selectedBarber && (
-          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/80 ">
-            <motion.div initial={{ scale: 0.95, opacity: 0, y: 20 }} animate={{ scale: 1, opacity: 1, y: 0 }} exit={{ scale: 0.95, opacity: 0, y: 20 }} className="bg-[#050B14] border border-[#C88E70]/30 rounded-3xl w-full max-w-md overflow-hidden shadow-2xl relative max-h-[80vh] flex flex-col">
-              <div className="p-8 pb-4 relative z-10 shrink-0">
-                <button onClick={() => setIsWalkInModalOpen(false)} className="absolute top-6 right-6 text-gray-500 hover:text-white"><X className="w-5 h-5" /></button>
-                <h2 className="text-2xl font-serif text-white mb-2">Registrar <span className="text-[#C88E70] italic">Serviço</span></h2>
-                <p className="text-gray-400 text-xs mb-2">
-                  Adicionar serviço ao caixa de <strong className="text-white">{selectedBarber.name}</strong>.
+                <div className="flex items-center gap-2 mb-1.5">
+                  <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider bg-[#DFBA73]/20 text-[#F5D799] border border-[#DFBA73]/30 font-mono">
+                    Lançamento Direto • 100% Studio
+                  </span>
+                </div>
+                <h2 className="text-2xl font-serif text-white">
+                  Registrar <span className="text-[#DFBA73] italic">Serviço Balcão</span>
+                </h2>
+                <p className="text-gray-400 text-xs mt-1 font-light">
+                  Lançar atendimento diretamente no caixa de <strong className="text-white">Lucas Augusto</strong> para o dia {selectedDate.split("-").reverse().join("/")}.
                 </p>
               </div>
-              <div className="p-8 pt-0 overflow-y-auto space-y-3 pb-8 relative z-10 flex-1">
-                {services.map(svc => (
-                  <button
-                    key={svc.id}
-                    onClick={() => handleRegisterService(svc)}
-                    disabled={isSubmitting}
-                    className="w-full flex items-center justify-between p-4 rounded-xl border border-white/5 bg-white/5 hover:bg-white/10 hover:border-[#C88E70]/30 transition-all text-left disabled:opacity-50"
-                  >
-                    <div>
-                      <h3 className="text-white font-medium">{svc.name}</h3>
-                      <p className="text-xs text-gray-500 mt-1">{svc.duration} min</p>
+
+              {/* Scroll Body */}
+              <div className="p-6 md:p-8 pt-4 overflow-y-auto space-y-5 relative z-10 flex-1">
+                {/* 1. Escolha de Serviços */}
+                <div>
+                  <label className="block text-gray-400 text-xs uppercase font-mono tracking-wider mb-2 font-medium">
+                    1. Selecione o Ritual
+                  </label>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                    {OFFICIAL_SERVICES.map(svc => {
+                      const isSelected = svc.id === selectedServiceId;
+
+                      return (
+                        <button
+                          key={svc.id}
+                          type="button"
+                          onClick={() => setSelectedServiceId(svc.id)}
+                          className={`p-3 rounded-2xl border text-left transition-all flex items-center justify-between cursor-pointer ${
+                            isSelected 
+                              ? "border-[#DFBA73] bg-[#DFBA73]/15 shadow-lg shadow-[#DFBA73]/10 ring-1 ring-[#DFBA73]" 
+                              : "border-white/10 hover:border-white/30 bg-white/[0.02] hover:bg-white/[0.05]"
+                          }`}
+                        >
+                          <div className="flex items-center gap-2.5">
+                            <div className={`w-5 h-5 rounded-full flex items-center justify-center border text-[10px] ${
+                              isSelected ? "border-[#DFBA73] bg-[#DFBA73] text-black font-bold" : "border-white/20 text-transparent"
+                            }`}>
+                              ✓
+                            </div>
+                            <div>
+                              <div className="flex items-center gap-1.5">
+                                <h4 className="text-white text-xs font-semibold">{svc.name}</h4>
+                                {svc.badge && (
+                                  <span className="text-[8px] bg-[#DFBA73]/20 text-[#F5D799] px-1 py-0.2 rounded font-bold uppercase font-mono">
+                                    {svc.badge}
+                                  </span>
+                                )}
+                              </div>
+                              <p className="text-[10px] text-gray-500 font-mono">
+                                {svc.duration} min • 100% Studio
+                              </p>
+                            </div>
+                          </div>
+                          <span className="text-[#DFBA73] font-mono font-bold text-xs">
+                            R$ {svc.price}
+                          </span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                {/* 2. Forma de Pagamento */}
+                <div>
+                  <label className="block text-gray-400 text-xs uppercase font-mono tracking-wider mb-2 font-medium">
+                    2. Forma de Pagamento
+                  </label>
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                    {[
+                      { id: "PIX", label: "PIX", icon: Sparkles },
+                      { id: "DINHEIRO", label: "Dinheiro", icon: Banknote },
+                      { id: "CARTAO_DEBITO", label: "Débito", icon: CreditCard },
+                      { id: "CARTAO_CREDITO", label: "Crédito", icon: CreditCard },
+                    ].map((m) => (
+                      <button
+                        key={m.id}
+                        type="button"
+                        onClick={() => setPaymentMethod(m.id)}
+                        className={`py-2.5 px-3 rounded-xl text-xs font-mono font-medium border transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
+                          paymentMethod === m.id
+                            ? "border-[#DFBA73] bg-[#DFBA73]/20 text-[#F5D799] font-bold shadow-md shadow-[#DFBA73]/10"
+                            : "border-white/10 text-gray-400 hover:text-white hover:border-white/20"
+                        }`}
+                      >
+                        <m.icon className="w-3.5 h-3.5" />
+                        <span>{m.label}</span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* 3. Resumo Financeiro */}
+                {(() => {
+                  const activeSvc = OFFICIAL_SERVICES.find(s => s.id === selectedServiceId) || OFFICIAL_SERVICES[0];
+
+                  return (
+                    <div className="p-4 rounded-2xl bg-[#DFBA73]/10 border border-[#DFBA73]/30 space-y-1.5 text-xs font-mono">
+                      <div className="flex justify-between items-center text-gray-300">
+                        <span>Ritual Selecionado:</span>
+                        <strong className="text-white text-sm">{activeSvc.name}</strong>
+                      </div>
+                      <div className="flex justify-between items-center text-[#DFBA73]">
+                        <span>Faturamento 100% Studio:</span>
+                        <strong className="text-base text-[#F5D799] font-bold">R$ {activeSvc.price.toFixed(2)}</strong>
+                      </div>
+                      <div className="text-[10px] text-gray-400 pt-1 border-t border-white/10 flex justify-between">
+                        <span>Forma de Pagamento:</span>
+                        <span className="uppercase text-white">{paymentMethod}</span>
+                      </div>
                     </div>
-                    <span className="text-[#C88E70] font-serif text-lg">R$ {svc.price.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
-                  </button>
-                ))}
+                  );
+                })()}
+              </div>
+
+              {/* Footer */}
+              <div className="p-6 md:p-8 pt-3 border-t border-white/10 shrink-0 space-y-2">
+                {(() => {
+                  const activeSvc = OFFICIAL_SERVICES.find(s => s.id === selectedServiceId) || OFFICIAL_SERVICES[0];
+                  return (
+                    <button
+                      type="button"
+                      disabled={isSubmitting}
+                      onClick={handleRegisterWalkIn}
+                      className="w-full py-4 rounded-xl bg-gradient-to-r from-[#F5D799] via-[#DFBA73] to-[#B88B38] text-black font-bold text-xs uppercase font-mono tracking-wider transition-all duration-300 shadow-xl shadow-[#DFBA73]/20 flex items-center justify-center gap-2 disabled:opacity-50 cursor-pointer hover:brightness-110"
+                    >
+                      {isSubmitting ? (
+                        <>
+                          <div className="w-4 h-4 border-2 border-black border-t-transparent rounded-full animate-spin" />
+                          <span>Lançando no Caixa...</span>
+                        </>
+                      ) : (
+                        <>
+                          <Sparkles className="w-4 h-4" />
+                          <span>Lançar no Caixa • R$ {activeSvc.price.toFixed(2)}</span>
+                        </>
+                      )}
+                    </button>
+                  );
+                })()}
+
+                <button 
+                  type="button" 
+                  onClick={() => setIsWalkInModalOpen(false)}
+                  className="w-full text-center text-[11px] uppercase font-mono tracking-widest text-gray-500 hover:text-white transition-colors py-1 cursor-pointer"
+                >
+                  Cancelar
+                </button>
               </div>
             </motion.div>
           </motion.div>
-        )}
-      </AnimatePresence>
+        </AnimatePresence>,
+        document.body
+      )}
 
     </motion.div>
   );

@@ -1,24 +1,24 @@
 "use client";
 
-import { motion, AnimatePresence, useScroll, useTransform, useSpring } from "framer-motion";
-import { Calendar, ChevronRight, ChevronLeft, Menu, Scissors, Star, MapPin, Clock } from "lucide-react";
+import { motion, AnimatePresence, useScroll, useTransform } from "framer-motion";
+import { Calendar, ChevronRight, ChevronLeft, Menu, MapPin, X, Star, Smartphone, Clock, Sparkles, LogOut } from "lucide-react";
 import { useState, useEffect, useRef, ReactNode } from "react";
+import Image from "next/image";
 import Link from "next/link";
 import BookingModal from "@/components/BookingModal";
-import { useSession } from "next-auth/react";
+import { useSession, signOut } from "next-auth/react";
 import ExperienciaSection from "@/components/ExperienciaSection";
+import NossaAreaSection from "@/components/NossaAreaSection";
+import StudioVideoSection from "@/components/StudioVideoSection";
+import ServicesMenuSection from "@/components/ServicesMenuSection";
+import LogoLasBarber from "@/components/LogoLasBarber";
+import FloatingSocialButtons from "@/components/FloatingSocialButtons";
 
-// --- DADOS ---
+// --- FOTOS PRINCIPAIS AUTÊNTICAS DO ESTÚDIO ---
 const HERO_IMAGES = [
-  "https://images.unsplash.com/photo-1599351431202-1e0f0137899a?q=80&w=2074&auto=format&fit=crop",
-  "https://images.unsplash.com/photo-1585747860715-2ba37e788b70?q=80&w=2074&auto=format&fit=crop",
-  "https://images.unsplash.com/photo-1503951914875-452162b0f3f1?q=80&w=2070&auto=format&fit=crop"
-];
-
-const SERVICES = [
-  { title: "Corte Clássico", price: "R$ 80", desc: "Corte na tesoura ou máquina com acabamento impecável e finalização.", img: "https://images.unsplash.com/photo-1503951914875-452162b0f3f1?q=80&w=800&auto=format&fit=crop" },
-  { title: "Barba Terapia", price: "R$ 60", desc: "Alinhamento com navalha, toalha quente, massagem facial e óleos essenciais.", img: "https://images.unsplash.com/photo-1621605815971-fbc98d665033?q=80&w=800&auto=format&fit=crop" },
-  { title: "Combo Premium", price: "R$ 120", desc: "A experiência completa de Corte, Barba e hidratação capilar profunda.", img: "https://images.unsplash.com/photo-1585747860715-2ba37e788b70?q=80&w=800&auto=format&fit=crop" }
+  "/studio/hero-new-1.jpg",
+  "/studio/hero-new-2.jpg",
+  "/studio/hero-new-3.jpg",
 ];
 
 // --- COMPONENTES ANIMADOS PREMIUM ---
@@ -41,7 +41,8 @@ const MagneticButton = ({ children, className = "" }: { children: ReactNode, cla
 
   const handleMouse = (e: React.MouseEvent<HTMLButtonElement>) => {
     const { clientX, clientY } = e;
-    const { height, width, left, top } = ref.current!.getBoundingClientRect();
+    if (!ref.current) return;
+    const { height, width, left, top } = ref.current.getBoundingClientRect();
     const middleX = clientX - (left + width / 2);
     const middleY = clientY - (top + height / 2);
     setPosition({ x: middleX * 0.2, y: middleY * 0.2 });
@@ -69,339 +70,625 @@ export default function Home() {
   const [currentImage, setCurrentImage] = useState(0);
   const [isLoading, setIsLoading] = useState(true);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [selectedServiceId, setSelectedServiceId] = useState<string | undefined>(undefined);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+
+  const openBooking = (serviceId?: string) => {
+    setSelectedServiceId(serviceId);
+    setIsModalOpen(true);
+  };
+
   const { scrollYProgress } = useScroll();
-  
-  // Efeito Parallax suave para a imagem de fundo
   const y = useTransform(scrollYProgress, [0, 1], ["0%", "30%"]);
   const opacity = useTransform(scrollYProgress, [0, 0.5], [1, 0]);
 
   useEffect(() => {
-    // Simula um carregamento premium inicial
-    setTimeout(() => setIsLoading(false), 1500);
+    const loaderTimer = setTimeout(() => setIsLoading(false), 800);
     const timer = setInterval(() => {
       setCurrentImage((prev) => (prev + 1) % HERO_IMAGES.length);
     }, 6000);
-    return () => clearInterval(timer);
+    return () => {
+      clearTimeout(loaderTimer);
+      clearInterval(timer);
+    };
   }, []);
+
+  useEffect(() => {
+    if (isMobileMenuOpen) {
+      document.body.style.overflow = "hidden";
+    } else {
+      document.body.style.overflow = "";
+    }
+    return () => {
+      document.body.style.overflow = "";
+    };
+  }, [isMobileMenuOpen]);
 
   const nextSlide = () => setCurrentImage((prev) => (prev + 1) % HERO_IMAGES.length);
   const prevSlide = () => setCurrentImage((prev) => (prev - 1 + HERO_IMAGES.length) % HERO_IMAGES.length);
 
   return (
-    <div className="min-h-screen bg-[#050B14] text-white font-sans selection:bg-[#C88E70] selection:text-white">
+    <div className="min-h-screen bg-[#050608] text-white font-sans selection:bg-[#DFBA73] selection:text-black">
       
-      {/* LOADER INICIAL */}
+      {/* LOADER INICIAL COM LOGO EM COMPONENTE (SEM TESOURA) */}
       <AnimatePresence>
         {isLoading && (
           <motion.div 
             initial={{ y: 0 }}
             exit={{ y: "-100%" }}
             transition={{ duration: 1, ease: [0.76, 0, 0.24, 1] }}
-            className="fixed inset-0 z-[100] bg-[#050B14] flex items-center justify-center flex-col"
+            className="fixed inset-0 z-[100] bg-[#050608] flex items-center justify-center flex-col"
           >
             <motion.div
               animate={{ rotate: 360 }}
-              transition={{ duration: 2, repeat: Infinity, ease: "linear" }}
+              transition={{ duration: 8, repeat: Infinity, ease: "linear" }}
+              className="p-3 rounded-full border border-[#DFBA73]/30 bg-black/40 shadow-2xl shadow-[#DFBA73]/20"
             >
-              <Scissors className="w-12 h-12 text-[#C88E70]" />
+              <LogoLasBarber variant="emblem" size={88} />
             </motion.div>
             <motion.p 
-              initial={{ opacity: 0 }} animate={{ opacity: 1 }}
-              className="mt-4 font-serif text-[#C88E70] tracking-[0.3em] uppercase text-sm"
+              initial={{ opacity: 0 }} 
+              animate={{ opacity: 1 }}
+              className="mt-6 font-serif text-[#DFBA73] tracking-[0.3em] uppercase text-sm font-bold font-mono"
             >
-              SUA BARBEARIA
+              LAS BARBER STUDIO
             </motion.p>
           </motion.div>
         )}
       </AnimatePresence>
 
-      {/* NAVBAR */}
+      {/* NAVBAR MINIMALISTA LUXO */}
       <motion.nav 
         initial={{ opacity: 0, y: -20 }}
         animate={{ opacity: isLoading ? 0 : 1, y: isLoading ? -20 : 0 }}
         transition={{ duration: 0.8, delay: 1 }}
-        className="fixed top-0 w-full px-8 py-6 flex justify-between items-center z-50 mix-blend-difference"
+        className="fixed top-0 w-full px-6 md:px-12 py-6 flex justify-between items-center z-50 mix-blend-difference"
       >
-        <div className="flex items-center gap-3 cursor-pointer group">
-           <Scissors className="w-6 h-6 text-[#C88E70] group-hover:rotate-180 transition-transform duration-700" />
-           <span className="text-xl font-serif tracking-[0.3em] text-white uppercase">SUA BARBEARIA</span>
-        </div>
+        <Link href="/" className="cursor-pointer group">
+          <LogoLasBarber variant="horizontal" size={42} />
+        </Link>
         
-        <div className="hidden md:flex items-center gap-12 text-xs uppercase tracking-[0.2em] text-gray-300 font-semibold">
-          <a href="#servicos" className="hover:text-[#C88E70] transition-colors relative group">
+        <div className="hidden md:flex items-center gap-12 text-xs uppercase tracking-[0.2em] text-gray-300 font-semibold font-mono">
+          <a href="#servicos" className="hover:text-[#DFBA73] transition-colors relative group py-1">
             Serviços
-            <span className="absolute -bottom-2 left-0 w-0 h-[1px] bg-[#C88E70] transition-all duration-300 group-hover:w-full"></span>
+            <span className="absolute -bottom-2 left-0 w-0 h-[1px] bg-[#DFBA73] transition-all duration-300 group-hover:w-full"></span>
           </a>
-          <a href="#experiencia" className="hover:text-[#C88E70] transition-colors relative group">
+          <a href="#experiencia" className="hover:text-[#DFBA73] transition-colors relative group py-1">
             A Experiência
-            <span className="absolute -bottom-2 left-0 w-0 h-[1px] bg-[#C88E70] transition-all duration-300 group-hover:w-full"></span>
+            <span className="absolute -bottom-2 left-0 w-0 h-[1px] bg-[#DFBA73] transition-all duration-300 group-hover:w-full"></span>
           </a>
-          <Link href={session ? "/dashboard" : "/login"} className="hover:text-[#C88E70] transition-colors relative group">
-            {session ? "Painel" : "Login"}
-            <span className="absolute -bottom-2 left-0 w-0 h-[1px] bg-[#C88E70] transition-all duration-300 group-hover:w-full"></span>
-          </Link>
-          <div onClick={() => setIsModalOpen(true)}>
-            <MagneticButton className="bg-[#C88E70] text-[#050B14] px-8 py-4 flex items-center gap-3 hover:bg-white transition-colors duration-300">
-              <Calendar className="w-4 h-4" /> AGENDAR
+          <a href="#nossa-area" className="hover:text-[#DFBA73] transition-colors relative group py-1">
+            O Estúdio
+            <span className="absolute -bottom-2 left-0 w-0 h-[1px] bg-[#DFBA73] transition-all duration-300 group-hover:w-full"></span>
+          </a>
+          {session ? (
+            <div className="flex items-center gap-3">
+              <Link href={((session?.user as any)?.role === "CLIENT" ? "/painel-cliente" : "/dashboard")} className="hover:text-[#DFBA73] transition-colors relative group py-1">
+                Painel
+                <span className="absolute -bottom-2 left-0 w-0 h-[1px] bg-[#DFBA73] transition-all duration-300 group-hover:w-full"></span>
+              </Link>
+              <button
+                type="button"
+                onClick={async () => {
+                  try {
+                    await fetch("/api/auth/logout", { method: "POST" });
+                    await signOut({ redirect: false });
+                  } catch (_) {}
+                  window.location.href = "/api/auth/logout";
+                }}
+                className="text-gray-400 hover:text-red-400 transition-colors p-1 cursor-pointer"
+                title="Desconectar da conta"
+              >
+                <LogOut className="w-4 h-4" />
+              </button>
+            </div>
+          ) : (
+            <Link href="/login" className="hover:text-[#DFBA73] transition-colors relative group py-1">
+              Login
+              <span className="absolute -bottom-2 left-0 w-0 h-[1px] bg-[#DFBA73] transition-all duration-300 group-hover:w-full"></span>
+            </Link>
+          )}
+          <div onClick={() => openBooking()}>
+            <MagneticButton className="bg-[#DFBA73] text-[#050608] px-8 py-4 flex items-center gap-3 hover:bg-white hover:text-black transition-colors duration-300 font-bold uppercase tracking-[0.15em] text-xs shadow-lg shadow-[#DFBA73]/20 cursor-pointer">
+              <Calendar className="w-4 h-4" /> AGENDAR COM LUCAS
             </MagneticButton>
           </div>
         </div>
-        <button onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)} className="md:hidden text-white z-50">
+        
+        <button 
+          onClick={() => setIsMobileMenuOpen(true)} 
+          className="md:hidden text-white z-50 p-2 cursor-pointer hover:text-[#DFBA73] transition-colors"
+          aria-label="Abrir menu"
+        >
           <Menu className="w-8 h-8" />
         </button>
-
-        {/* MOBILE MENU */}
-        <AnimatePresence>
-          {isMobileMenuOpen && (
-            <motion.div
-              initial={{ opacity: 0, y: -20 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -20 }}
-              className="absolute top-full left-0 w-full bg-[#050B14]/95 backdrop-blur-xl border-b border-white/10 p-6 flex flex-col gap-6 md:hidden z-40"
-            >
-              <a href="#servicos" onClick={() => setIsMobileMenuOpen(false)} className="text-white text-lg tracking-widest uppercase hover:text-[#C88E70] transition-colors">Serviços</a>
-              <a href="#experiencia" onClick={() => setIsMobileMenuOpen(false)} className="text-white text-lg tracking-widest uppercase hover:text-[#C88E70] transition-colors">A Experiência</a>
-              <Link href={session ? "/dashboard" : "/login"} onClick={() => setIsMobileMenuOpen(false)} className="text-white text-lg tracking-widest uppercase hover:text-[#C88E70] transition-colors">
-                {session ? "Painel" : "Login"}
-              </Link>
-              <button 
-                onClick={() => { setIsMobileMenuOpen(false); setIsModalOpen(true); }}
-                className="bg-[#C88E70] text-[#050B14] py-4 flex items-center justify-center gap-3 font-semibold tracking-widest uppercase"
-              >
-                <Calendar className="w-4 h-4" /> AGENDAR
-              </button>
-            </motion.div>
-          )}
-        </AnimatePresence>
       </motion.nav>
 
-      <BookingModal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} />
+      {/* MENU MOBILE CINEMATOGRÁFICO DE LUXO (100% ISOLADO, SEM SOBREPOSIÇÃO) */}
+      <AnimatePresence>
+        {isMobileMenuOpen && (
+          <motion.div
+            initial={{ opacity: 0, y: -25 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -25 }}
+            transition={{ duration: 0.25, ease: "easeOut" }}
+            className="fixed inset-0 z-[100] bg-[#02050A] flex flex-col justify-between p-6 overflow-y-auto md:hidden"
+          >
+            {/* Topo do Menu Mobile */}
+            <div className="flex items-center justify-between pb-5 border-b border-white/10 shrink-0">
+              <div className="flex items-center gap-3">
+                <LogoLasBarber variant="emblem" size={38} />
+                <div className="flex flex-col">
+                  <span className="text-base font-serif tracking-[0.24em] text-white uppercase font-bold">
+                    LAS BARBER STUDIO
+                  </span>
+                  <span className="text-[9px] font-mono tracking-[0.3em] text-[#DFBA73] uppercase font-bold">
+                    ESTÚDIO PRIVATIVO • LUCAS AUGUSTO
+                  </span>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsMobileMenuOpen(false)}
+                className="w-10 h-10 rounded-full bg-white/5 border border-white/10 flex items-center justify-center text-gray-300 hover:text-white transition-colors cursor-pointer"
+                aria-label="Fechar Menu"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Links Estilo Cards VIP (Nítido, intuitivo e sem sobreposição) */}
+            <div className="flex-1 py-6 flex flex-col justify-center gap-2.5">
+              <p className="text-[10px] uppercase font-bold tracking-[0.35em] text-[#DFBA73] mb-0.5 font-mono">
+                Navegação Exclusiva
+              </p>
+
+              {/* 01 Serviços Oficiais */}
+              <a
+                href="#servicos"
+                onClick={() => setIsMobileMenuOpen(false)}
+                className="p-3.5 rounded-2xl bg-white/[0.03] border border-white/10 hover:border-[#DFBA73]/40 active:bg-[#DFBA73]/10 flex items-center justify-between transition-all group"
+              >
+                <div className="flex items-center gap-3.5">
+                  <span className="text-xs font-mono font-bold text-[#DFBA73] w-6 h-6 rounded-lg bg-[#DFBA73]/10 flex items-center justify-center border border-[#DFBA73]/30">
+                    01
+                  </span>
+                  <div>
+                    <span className="text-sm font-serif text-white block group-hover:text-[#F5D799] transition-colors">
+                      Cardápio de Serviços
+                    </span>
+                    <span className="text-[11px] text-gray-400 font-light">
+                      Cortes de cabelo, barboterapia e rituais completos
+                    </span>
+                  </div>
+                </div>
+                <ChevronRight className="w-4 h-4 text-gray-500 group-hover:text-[#DFBA73] transition-colors" />
+              </a>
+
+              {/* 02 A Experiência */}
+              <a
+                href="#experiencia"
+                onClick={() => setIsMobileMenuOpen(false)}
+                className="p-3.5 rounded-2xl bg-white/[0.03] border border-white/10 hover:border-[#DFBA73]/40 active:bg-[#DFBA73]/10 flex items-center justify-between transition-all group"
+              >
+                <div className="flex items-center gap-3.5">
+                  <span className="text-xs font-mono font-bold text-[#DFBA73] w-6 h-6 rounded-lg bg-[#DFBA73]/10 flex items-center justify-center border border-[#DFBA73]/30">
+                    02
+                  </span>
+                  <div>
+                    <span className="text-sm font-serif text-white block group-hover:text-[#F5D799] transition-colors">
+                      A Experiência do Studio
+                    </span>
+                    <span className="text-[11px] text-gray-400 font-light">
+                      Atendimento 1 a 1 exclusivo e corte sob medida
+                    </span>
+                  </div>
+                </div>
+                <ChevronRight className="w-4 h-4 text-gray-500 group-hover:text-[#DFBA73] transition-colors" />
+              </a>
+
+              {/* 03 Nosso Estúdio */}
+              <a
+                href="#nossa-area"
+                onClick={() => setIsMobileMenuOpen(false)}
+                className="p-3.5 rounded-2xl bg-white/[0.03] border border-white/10 hover:border-[#DFBA73]/40 active:bg-[#DFBA73]/10 flex items-center justify-between transition-all group"
+              >
+                <div className="flex items-center gap-3.5">
+                  <span className="text-xs font-mono font-bold text-[#DFBA73] w-6 h-6 rounded-lg bg-[#DFBA73]/10 flex items-center justify-center border border-[#DFBA73]/30">
+                    03
+                  </span>
+                  <div>
+                    <span className="text-sm font-serif text-white block group-hover:text-[#F5D799] transition-colors">
+                      O Estúdio & Localização
+                    </span>
+                    <span className="text-[11px] text-gray-400 font-light">
+                      Rua dos Ipês, Nº 360 · Centro, Comodoro - MT
+                    </span>
+                  </div>
+                </div>
+                <ChevronRight className="w-4 h-4 text-gray-500 group-hover:text-[#DFBA73] transition-colors" />
+              </a>
+
+              {/* 04 Área do Cliente / Barbeiro */}
+              <Link
+                href={session ? ((session?.user as any)?.role === "CLIENT" ? "/painel-cliente" : "/dashboard") : "/login"}
+                onClick={() => setIsMobileMenuOpen(false)}
+                className="p-3.5 rounded-2xl bg-white/[0.03] border border-white/10 hover:border-[#DFBA73]/40 active:bg-[#DFBA73]/10 flex items-center justify-between transition-all group"
+              >
+                <div className="flex items-center gap-3.5">
+                  <span className="text-xs font-mono font-bold text-[#DFBA73] w-6 h-6 rounded-lg bg-[#DFBA73]/10 flex items-center justify-center border border-[#DFBA73]/30">
+                    04
+                  </span>
+                  <div>
+                    <span className="text-sm font-serif text-white block group-hover:text-[#F5D799] transition-colors">
+                      {session ? "Meu Painel VIP" : "Área do Cliente / Barbeiro"}
+                    </span>
+                    <span className="text-[11px] text-gray-400 font-light">
+                      {session ? "Consulte seus horários agendados" : "Acesse com seu login e senha"}
+                    </span>
+                  </div>
+                </div>
+                <ChevronRight className="w-4 h-4 text-gray-500 group-hover:text-[#DFBA73] transition-colors" />
+              </Link>
+
+              {session && (
+                <button
+                  type="button"
+                  onClick={async () => {
+                    setIsMobileMenuOpen(false);
+                    try {
+                      await fetch("/api/auth/logout", { method: "POST" });
+                      await signOut({ redirect: false });
+                    } catch (_) {}
+                    window.location.href = "/api/auth/logout";
+                  }}
+                  className="p-3 rounded-2xl bg-red-500/10 border border-red-500/20 active:bg-red-500/20 flex items-center justify-between transition-all group text-left cursor-pointer"
+                >
+                  <div className="flex items-center gap-3.5">
+                    <div className="w-6 h-6 rounded-lg bg-red-500/20 text-red-400 flex items-center justify-center border border-red-500/30">
+                      <LogOut className="w-3.5 h-3.5" />
+                    </div>
+                    <div>
+                      <span className="text-sm font-serif text-red-300 block">
+                        Desconectar Conta
+                      </span>
+                      <span className="text-[10px] text-gray-400 font-light">
+                        Encerrar sessão de {(session?.user?.name || "usuário")}
+                      </span>
+                    </div>
+                  </div>
+                  <span className="text-[10px] text-red-400 font-mono uppercase tracking-wider font-bold">Sair</span>
+                </button>
+              )}
+
+              {/* 05 Avaliação no Google */}
+              <a
+                href="https://www.google.com/search?q=LAS+BARBER+STUDIO+COMODORO&client=opera-gx&hs=zgZ&sca_esv=fa5a74c15ed6cc46&sxsrf=AKL5yDh53rRfeyC4nYumBOx-InFmhxDS5A:1793932773239&udm=local&lsack=5T3tauGWDp-q1sQPk6_y0Qk&sa=X&ved=2ahUKEwihncytqPKXAxUflZUCHZOXPJoQjGp6BAggEAE&biw=1919&bih=969&dpr=1#"
+                target="_blank"
+                rel="noopener noreferrer"
+                onClick={() => setIsMobileMenuOpen(false)}
+                className="p-3.5 rounded-2xl bg-[#DFBA73]/[0.08] border border-[#DFBA73]/30 active:bg-[#DFBA73]/20 flex items-center justify-between transition-all group"
+              >
+                <div className="flex items-center gap-3.5">
+                  <div className="w-7 h-7 rounded-lg bg-[#DFBA73]/20 text-[#DFBA73] flex items-center justify-center shrink-0 border border-[#DFBA73]/40">
+                    <Star className="w-3.5 h-3.5 fill-[#DFBA73]" />
+                  </div>
+                  <div>
+                    <span className="text-sm font-serif text-white block group-hover:text-[#F5D799] transition-colors">
+                      Avalie no Google (5.0 ★)
+                    </span>
+                    <span className="text-[11px] text-[#DFBA73]/90 font-light">
+                      LAS Barber Studio em Comodoro - MT
+                    </span>
+                  </div>
+                </div>
+                <ChevronRight className="w-4 h-4 text-[#DFBA73]" />
+              </a>
+
+              {/* 06 Baixar Aplicativo */}
+              <button
+                type="button"
+                onClick={() => {
+                  setIsMobileMenuOpen(false);
+                  if (typeof window !== "undefined") {
+                    window.dispatchEvent(new CustomEvent("trigger-pwa-install"));
+                  }
+                }}
+                className="p-3.5 rounded-2xl bg-white/[0.03] border border-white/10 active:bg-white/10 flex items-center justify-between transition-all text-left w-full group cursor-pointer"
+              >
+                <div className="flex items-center gap-3.5">
+                  <div className="w-7 h-7 rounded-lg bg-white/10 text-white flex items-center justify-center shrink-0 border border-white/15">
+                    <Smartphone className="w-3.5 h-3.5 text-[#DFBA73]" />
+                  </div>
+                  <div>
+                    <span className="text-sm font-serif text-white block group-hover:text-[#F5D799] transition-colors">
+                      Baixar Aplicativo do Studio
+                    </span>
+                    <span className="text-[11px] text-gray-400 font-light">
+                      Instale no iPhone, Android ou Computador
+                    </span>
+                  </div>
+                </div>
+                <ChevronRight className="w-4 h-4 text-[#DFBA73]" />
+              </button>
+            </div>
+
+            {/* Ações Inferiores do Menu Mobile */}
+            <div className="space-y-3 pt-4 border-t border-white/10 shrink-0">
+              <button 
+                onClick={() => { setIsMobileMenuOpen(false); openBooking(); }}
+                className="w-full bg-gradient-to-r from-[#F5D799] via-[#DFBA73] to-[#B88B38] text-black py-3.5 px-4 rounded-xl font-bold tracking-widest uppercase text-xs flex items-center justify-center gap-2 shadow-xl shadow-[#DFBA73]/25 hover:brightness-110 active:scale-[0.99] transition-all cursor-pointer font-mono"
+              >
+                <Calendar className="w-4 h-4 text-black" /> AGENDAR COM LUCAS
+              </button>
+
+              <div className="flex items-center justify-between text-[11px] text-gray-400 px-1 pt-1 font-mono">
+                <span className="flex items-center gap-1.5"><Clock className="w-3.5 h-3.5 text-[#DFBA73]" /> Seg a Sáb · 08h às 20h (Sáb até 18h)</span>
+                <span className="flex items-center gap-1.5"><MapPin className="w-3.5 h-3.5 text-[#DFBA73]" /> Comodoro - MT</span>
+              </div>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      <BookingModal 
+        isOpen={isModalOpen} 
+        onClose={() => {
+          setIsModalOpen(false);
+          setSelectedServiceId(undefined);
+        }} 
+        initialServiceId={selectedServiceId}
+      />
 
       {/* HERO SECTION COM PARALLAX E MÁSCARAS */}
       <main className="relative h-screen flex items-center justify-center overflow-hidden">
         
-        {/* Imagem de Fundo (Parallax + Slider) */}
-        <motion.div style={{ y, opacity }} className="absolute inset-0 w-full h-[120%] -top-[10%]">
-          <AnimatePresence>
+        {/* Imagens de Fundo com Transição Suave e Sem Tremor (Pré-carregadas) */}
+        <motion.div style={{ y, opacity }} className="absolute inset-0 w-full h-[120%] -top-[10%] overflow-hidden">
+          {HERO_IMAGES.map((img, idx) => (
             <motion.div
-              key={currentImage}
-              initial={{ opacity: 0, scale: 1.05 }}
-              animate={{ opacity: 1, scale: 1 }}
-              exit={{ opacity: 0 }}
-              transition={{ duration: 1.5, ease: "easeInOut" }}
-              className="absolute inset-0 bg-cover bg-center grayscale hover:grayscale-0 transition-all duration-1000"
-              style={{ backgroundImage: `url(${HERO_IMAGES[currentImage]})` }}
+              key={img}
+              initial={false}
+              animate={{
+                opacity: idx === currentImage ? 1 : 0,
+                scale: idx === currentImage ? 1 : 1.04,
+              }}
+              transition={{ duration: 1.2, ease: [0.4, 0, 0.2, 1] }}
+              className="absolute inset-0 bg-cover bg-center will-change-transform transform-gpu grayscale-0 md:grayscale md:hover:grayscale-0 transition-[filter] duration-700"
+              style={{ backgroundImage: `url(${img})` }}
             />
-          </AnimatePresence>
-          <div className="absolute inset-0 bg-[#050B14]/60 pointer-events-none" />
+          ))}
+          <div className="absolute inset-0 bg-gradient-to-b from-[#050608]/50 via-[#050608]/40 to-[#050608] pointer-events-none" />
         </motion.div>
 
         {/* Textos Centrais com Máscara */}
-        <div className="relative z-10 text-center flex flex-col items-center mt-20">
+        <div className="relative z-10 text-center flex flex-col items-center mt-20 px-4 max-w-5xl mx-auto">
+          
+          {/* Badge Superior com Linhas Douradas */}
           <RevealText delay={1.2}>
-            <p className="text-[#C88E70] uppercase tracking-[0.4em] text-sm font-semibold mb-6 flex items-center gap-4">
-              <span className="w-12 h-[1px] bg-[#C88E70]"></span>
-              Arte & Precisão
-              <span className="w-12 h-[1px] bg-[#C88E70]"></span>
+            <p className="text-[#DFBA73] uppercase tracking-[0.4em] text-sm font-semibold mb-6 flex items-center justify-center gap-4 font-mono">
+              <span className="w-8 md:w-12 h-[1px] bg-[#DFBA73]"></span>
+              Estúdio Privativo • Lucas Augusto
+              <span className="w-8 md:w-12 h-[1px] bg-[#DFBA73]"></span>
             </p>
           </RevealText>
           
-          <h1 className="text-6xl md:text-[7rem] font-serif leading-[0.9] tracking-tight uppercase flex flex-col items-center">
-            <RevealText delay={1.3}>VISUAL <span className="italic text-transparent [-webkit-text-stroke:1px_white] hover:text-white transition-colors duration-500">IMPECÁVEL,</span></RevealText>
-            <RevealText delay={1.4}><span className="text-[#C88E70]">ATITUDE</span> ÚNICA.</RevealText>
+          {/* Título Monumental com Letras Contornadas e Dourado */}
+          <h1 className="text-5xl sm:text-6xl md:text-[6.8rem] font-serif leading-[0.92] tracking-tight uppercase flex flex-col items-center">
+            <RevealText delay={1.3}>
+              VISUAL{" "}
+              <span className="italic text-transparent [-webkit-text-stroke:1px_white] hover:text-white transition-colors duration-500">
+                IMPECÁVEL,
+              </span>
+            </RevealText>
+            <RevealText delay={1.4}>
+              <span className="text-[#DFBA73]">EXPERIÊNCIA</span> EXCLUSIVA.
+            </RevealText>
           </h1>
 
+          {/* Botões CTA com Efeito Magnético */}
           <motion.div 
-            initial={{ opacity: 0, y: 20 }} animate={{ opacity: isLoading ? 0 : 1, y: isLoading ? 20 : 0 }} transition={{ delay: 1.8, duration: 1 }}
-            className="mt-12 flex gap-6"
+            initial={{ opacity: 0, y: 20 }} 
+            animate={{ opacity: isLoading ? 0 : 1, y: isLoading ? 20 : 0 }} 
+            transition={{ delay: 1.6, duration: 1 }}
+            className="mt-10 md:mt-12 flex flex-col sm:flex-row gap-6 items-center justify-center"
           >
-            <div onClick={() => setIsModalOpen(true)}>
-              <MagneticButton className="border border-white/20 px-10 py-5 uppercase tracking-[0.2em] text-xs hover:bg-[#C88E70] hover:border-[#C88E70] hover:text-[#050B14] transition-all duration-500 flex items-center gap-4 group backdrop-blur-md bg-white/5">
-                Agendar Experiência
+            <div onClick={() => openBooking()}>
+              <MagneticButton className="border border-white/20 px-10 py-5 uppercase tracking-[0.2em] text-xs hover:bg-[#DFBA73] hover:border-[#DFBA73] hover:text-[#050608] transition-all duration-500 flex items-center gap-4 group backdrop-blur-md bg-white/5 font-bold cursor-pointer">
+                <span>Reservar Meu Horário</span>
                 <ChevronRight className="w-4 h-4 group-hover:translate-x-2 transition-transform" />
               </MagneticButton>
             </div>
+            
+            <a 
+              href="#nossa-area"
+              className="text-xs uppercase tracking-[0.2em] text-gray-400 hover:text-white transition-colors py-4 px-6 relative group font-mono"
+            >
+              Conhecer o Espaço
+              <span className="absolute bottom-2 left-6 right-6 h-[1px] bg-white/30 group-hover:bg-[#DFBA73] transition-colors" />
+            </a>
           </motion.div>
         </div>
 
-        {/* Controles do Slider (Absoluto na base) */}
+        {/* Controles do Slider */}
         <motion.div 
-          initial={{ opacity: 0 }} animate={{ opacity: isLoading ? 0 : 1 }} transition={{ delay: 2, duration: 1 }}
-          className="absolute bottom-12 left-12 flex items-center gap-6 z-20"
+          initial={{ opacity: 0 }} 
+          animate={{ opacity: isLoading ? 0 : 1 }} 
+          transition={{ delay: 2, duration: 1 }}
+          className="absolute bottom-12 left-6 md:left-12 flex items-center gap-6 z-20"
         >
-           <button onClick={prevSlide} className="p-3 border border-white/20 rounded-full hover:bg-white hover:text-black transition-colors">
+           <button 
+             onClick={prevSlide} 
+             className="p-3 border border-white/20 rounded-full hover:bg-white hover:text-black transition-colors cursor-pointer"
+             aria-label="Slide anterior"
+           >
              <ChevronLeft className="w-4 h-4" />
            </button>
            <div className="flex gap-3">
              {HERO_IMAGES.map((_, idx) => (
-               <div key={idx} onClick={() => setCurrentImage(idx)} className={`h-1 cursor-pointer transition-all duration-700 ease-out ${idx === currentImage ? "w-16 bg-[#C88E70]" : "w-6 bg-white/20 hover:bg-white/50"}`} />
+               <div 
+                 key={idx} 
+                 onClick={() => setCurrentImage(idx)} 
+                 className={`h-1 cursor-pointer transition-all duration-700 ease-out ${
+                   idx === currentImage 
+                     ? "w-16 bg-[#DFBA73]" 
+                     : "w-6 bg-white/20 hover:bg-white/50"
+                 }`} 
+               />
              ))}
            </div>
-           <button onClick={nextSlide} className="p-3 border border-white/20 rounded-full hover:bg-white hover:text-black transition-colors">
+           <button 
+             onClick={nextSlide} 
+             className="p-3 border border-white/20 rounded-full hover:bg-white hover:text-black transition-colors cursor-pointer"
+             aria-label="Próximo slide"
+           >
              <ChevronRight className="w-4 h-4" />
            </button>
         </motion.div>
       </main>
 
       {/* MARQUEE GIGANTE E INVERTIDO */}
-      <div className="bg-[#050B14] border-y border-white/10 py-6 overflow-hidden flex whitespace-nowrap -rotate-1 scale-105 transform-gpu relative z-20">
+      <div className="bg-[#050608] border-y border-white/10 py-6 overflow-hidden flex whitespace-nowrap -rotate-1 scale-105 transform-gpu relative z-20">
         <motion.div 
           animate={{ x: ["-50%", "0%"] }} 
           transition={{ repeat: Infinity, ease: "linear", duration: 25 }}
-          className="flex font-serif text-5xl uppercase tracking-widest text-[#C88E70] opacity-80"
+          className="flex font-serif text-5xl uppercase tracking-widest text-[#DFBA73] opacity-80"
         >
            {[...Array(6)].map((_, i) => (
               <span key={i} className="mx-12 flex items-center gap-12">
-                 Corte Premium <span className="text-white/20">✦</span> Barboterapia <span className="text-white/20">✦</span> Estilo <span className="text-white/20">✦</span>
+                 Corte Premium <span className="text-white/20">✦</span> Barboterapia SPA <span className="text-white/20">✦</span> Alta Precisão <span className="text-white/20">✦</span> Estilo <span className="text-white/20">✦</span>
               </span>
            ))}
         </motion.div>
       </div>
 
-      {/* SESSÃO DE SERVIÇOS (SCROLL REVEAL BENTO) */}
-      <section id="servicos" className="py-40 px-8 md:px-24 bg-[#050B14]">
-        <div className="flex flex-col md:flex-row justify-between items-end mb-24">
-          <div className="max-w-2xl">
-            <RevealText>
-              <h2 className="text-5xl md:text-7xl font-serif mb-6">A <span className="text-[#C88E70] italic">Arte</span> do Cuidar</h2>
-            </RevealText>
-            <RevealText delay={0.1}>
-              <p className="text-gray-400 font-light text-lg leading-relaxed">Não somos apenas uma barbearia. Somos um refúgio masculino onde técnica clássica encontra luxo contemporâneo.</p>
-            </RevealText>
-          </div>
-          <motion.div initial={{ opacity: 0, x: 50 }} whileInView={{ opacity: 1, x: 0 }} viewport={{ once: true }} className="hidden md:block">
-             <div onClick={() => setIsModalOpen(true)}>
-               <MagneticButton className="text-[#C88E70] uppercase tracking-[0.2em] text-sm border-b border-[#C88E70] pb-1 hover:text-white transition-colors">
-                 Ver todos os serviços
-               </MagneticButton>
-             </div>
-          </motion.div>
-        </div>
+      {/* SESSÃO: CARDÁPIO AUTORAL DE SERVIÇOS & RITUAIS (MANTIDO IDÊNTICO) */}
+      <ServicesMenuSection onSelectService={(serviceId) => openBooking(serviceId)} />
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          {SERVICES.map((service, idx) => (
-            <motion.div
-              key={idx}
-              onClick={() => setIsModalOpen(true)}
-              initial={{ opacity: 0, y: 100 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true, margin: "-100px" }}
-              transition={{ delay: idx * 0.2, duration: 0.8, ease: [0.33, 1, 0.68, 1] }}
-              className={`group relative overflow-hidden bg-gray-900 cursor-pointer ${idx === 1 ? "md:-translate-y-12" : ""}`}
-              style={{ height: idx === 1 ? '550px' : '450px' }}
-            >
-              <div className="absolute inset-0 bg-cover bg-center transition-transform duration-[1.5s] ease-out group-hover:scale-110 opacity-50 grayscale group-hover:grayscale-0" style={{ backgroundImage: `url(${service.img})` }} />
-              <div className="absolute inset-0 bg-gradient-to-t from-[#050B14] via-[#050B14]/60 to-transparent opacity-90 group-hover:opacity-100 transition-opacity" />
-              
-              <div className="absolute bottom-0 left-0 w-full p-10 translate-y-8 group-hover:translate-y-0 transition-transform duration-700 ease-out">
-                <div className="flex justify-between items-center mb-4">
-                  <h3 className="text-3xl font-serif text-white">{service.title}</h3>
-                </div>
-                <p className="text-gray-400 text-sm font-light mb-8 opacity-0 group-hover:opacity-100 transition-opacity duration-700 delay-100 max-w-[80%]">
-                  {service.desc}
-                </p>
-                <div className="flex justify-between items-center border-t border-white/10 pt-6">
-                  <span className="text-[#C88E70] font-sans tracking-widest text-lg">{service.price}</span>
-                  <div className="w-10 h-10 rounded-full border border-white/20 flex items-center justify-center group-hover:bg-[#C88E70] group-hover:border-[#C88E70] group-hover:text-black transition-all duration-300">
-                    <ChevronRight className="w-5 h-5" />
-                  </div>
-                </div>
-              </div>
-            </motion.div>
-          ))}
-        </div>
-      </section>
-
-      {/* SESSÃO: A EXPERIÊNCIA (REFINADA) */}
+      {/* SESSÃO: A EXPERIÊNCIA */}
       <ExperienciaSection />
 
-      {/* MEGA BRAIN FINAL CTA & FOOTER */}
-      <section className="relative bg-[#02050A] text-[#C88E70] min-h-screen flex flex-col items-center justify-center overflow-hidden">
-        {/* Fundo Parallax Sombrio */}
-        <motion.div 
-          style={{ y: useTransform(scrollYProgress, [0.8, 1], [0, 200]), opacity: useTransform(scrollYProgress, [0.8, 1], [0, 0.4]) }}
-          className="absolute inset-0 bg-[url('https://images.unsplash.com/photo-1520338661084-3522f7c00683?q=80&w=2070')] bg-cover bg-center pointer-events-none"
-        />
-        <div className="absolute inset-0 bg-gradient-to-t from-[#02050A] via-[#02050A]/90 to-transparent pointer-events-none" />
+      {/* SESSÃO: O ESTÚDIO PRIVATIVO & LOCALIZAÇÃO */}
+      <NossaAreaSection />
 
-        <div className="relative z-10 w-full max-w-7xl mx-auto px-8 flex flex-col items-center justify-center flex-1 py-32">
+      {/* VÍDEO TOUR OFICIAL DO ESTÚDIO */}
+      <StudioVideoSection />
+
+      {/* FINAL CTA & FOOTER LAS BARBER STUDIO */}
+      <section className="relative bg-[#02050A] text-[#DFBA73] min-h-screen flex flex-col items-center justify-between overflow-hidden">
+        {/* Foto Oficial de Fundo Preenchendo Toda a Sessão com Posição Nobre */}
+        <div className="absolute inset-0 w-full h-full overflow-hidden">
+          <Image
+            src="/studio/cta-signature.jpg"
+            alt="LAS Barber Studio - Estúdio Privativo Lucas Augusto"
+            fill
+            quality={95}
+            priority
+            className="object-cover object-center md:object-[center_35%] scale-100"
+          />
+          {/* Overlays Cinematográficos para Legibilidade e Atmosfera de Alto Padrão */}
+          <div className="absolute inset-0 bg-black/45 pointer-events-none" />
+          <div className="absolute inset-0 bg-gradient-to-t from-[#02050A] via-[#02050A]/40 to-[#050608]/85 pointer-events-none" />
+        </div>
+
+        <div className="relative z-10 w-full max-w-7xl mx-auto px-6 md:px-8 flex flex-col items-center justify-center flex-1 py-28 md:py-36 text-center">
+          
+          {/* Medalhão da Logo LAS Girando suavemente no Círculo (SEM TESOURA) */}
           <motion.div 
-            initial={{ scale: 0.5, rotate: -180, opacity: 0 }}
-            whileInView={{ scale: 1, rotate: 0, opacity: 1 }}
-            viewport={{ once: true, margin: "-100px" }}
-            transition={{ type: "spring", stiffness: 50, damping: 20 }}
-            className="w-24 h-24 rounded-full border border-[#C88E70]/30 flex items-center justify-center mb-12 backdrop-blur-sm"
+            initial={{ scale: 0.8, opacity: 0 }}
+            whileInView={{ scale: 1, opacity: 1 }}
+            viewport={{ once: true, margin: "-80px" }}
+            transition={{ type: "spring", stiffness: 60, damping: 20 }}
+            className="w-24 h-24 rounded-full border border-[#DFBA73]/50 flex items-center justify-center mb-10 backdrop-blur-md bg-black/60 shadow-[0_0_30px_rgba(223,186,115,0.25)]"
           >
-            <Scissors className="w-10 h-10 text-[#C88E70]" />
+            <LogoLasBarber variant="emblem" size={76} />
           </motion.div>
 
-          <div className="text-center space-y-4 mb-16 relative">
+          {/* Título Monumental */}
+          <div className="text-center space-y-4 mb-14 relative max-w-4xl">
              <motion.h2 
-               initial={{ opacity: 0, y: 100, filter: "blur(20px)" }}
-               whileInView={{ opacity: 1, y: 0, filter: "blur(0px)" }}
+               initial={{ opacity: 0, y: 40 }}
+               whileInView={{ opacity: 1, y: 0 }}
                viewport={{ once: true }}
-               transition={{ duration: 1.5, ease: [0.16, 1, 0.3, 1] }}
-               className="text-[4rem] md:text-[8rem] font-serif leading-[0.8] tracking-tighter uppercase"
+               transition={{ duration: 0.9, ease: [0.16, 1, 0.3, 1] }}
+               className="text-[3.5rem] sm:text-[5rem] md:text-[7.5rem] font-serif leading-[0.88] tracking-tight uppercase text-white drop-shadow-2xl"
              >
                A Sua Nova <br /> 
-               <span className="text-transparent [-webkit-text-stroke:2px_#C88E70] hover:text-[#C88E70] transition-colors duration-1000">
+               <span className="text-transparent [-webkit-text-stroke:2px_#DFBA73] hover:text-[#DFBA73] transition-colors duration-700">
                  Assinatura
                </span>
              </motion.h2>
              <motion.p 
-               initial={{ opacity: 0, scale: 0.8 }}
+               initial={{ opacity: 0, scale: 0.9 }}
                whileInView={{ opacity: 1, scale: 1 }}
                viewport={{ once: true }}
-               transition={{ delay: 0.5, duration: 1 }}
-               className="text-xl md:text-2xl text-gray-400 font-light max-w-2xl mx-auto italic"
+               transition={{ delay: 0.3, duration: 0.8 }}
+               className="text-lg md:text-2xl text-gray-200 font-light max-w-2xl mx-auto italic drop-shadow-md leading-relaxed"
              >
-               Onde tradição e sofisticação se encontram para redefinir o seu estilo.
+               Onde privacidade e técnica refinada se encontram para redefinir o seu estilo.
              </motion.p>
           </div>
 
+          {/* Botão Magnético Gigante com Reflexo Animado */}
           <motion.div 
-             initial={{ opacity: 0, y: 50 }}
+             initial={{ opacity: 0, y: 40 }}
              whileInView={{ opacity: 1, y: 0 }}
              viewport={{ once: true }}
-             transition={{ delay: 0.8, duration: 1, type: "spring" }}
-             onClick={() => setIsModalOpen(true)} 
+             transition={{ delay: 0.5, duration: 0.8, type: "spring" }}
+             onClick={() => openBooking()} 
              className="relative group cursor-pointer"
            >
-             <div className="absolute -inset-4 rounded-full bg-[#C88E70]/20 blur-2xl group-hover:bg-[#C88E70]/40 transition-all duration-700" />
-             <MagneticButton className="relative bg-[#C88E70] text-[#050B14] px-16 py-8 rounded-full uppercase tracking-[0.4em] text-sm font-black overflow-hidden transform hover:scale-110 transition-transform duration-500">
+             <div className="absolute -inset-4 rounded-full bg-[#DFBA73]/25 blur-2xl group-hover:bg-[#DFBA73]/50 transition-all duration-700" />
+             <MagneticButton className="relative bg-[#DFBA73] text-[#050608] px-14 py-7 md:px-16 md:py-8 rounded-full uppercase tracking-[0.35em] text-xs md:text-sm font-black overflow-hidden transform hover:scale-105 transition-transform duration-500 cursor-pointer shadow-2xl shadow-[#DFBA73]/40">
                <motion.div 
                  animate={{ y: ["0%", "-100%", "0%"] }}
                  transition={{ duration: 5, repeat: Infinity, ease: "linear" }}
                  className="absolute inset-0 bg-gradient-to-r from-transparent via-white/40 to-transparent skew-x-[45deg]"
                />
-               <span className="relative z-10 flex items-center gap-4">
+               <span className="relative z-10 flex items-center gap-3">
                  <Calendar className="w-5 h-5" /> Reservar Horário
                </span>
              </MagneticButton>
            </motion.div>
         </div>
 
+        {/* Rodapé Oficial LAS Barber Studio */}
         <motion.footer 
           initial={{ opacity: 0 }}
           whileInView={{ opacity: 1 }}
           viewport={{ once: true }}
-          transition={{ delay: 1.5, duration: 2 }}
-          className="w-full border-t border-white/5 py-8 flex flex-col md:flex-row items-center justify-between px-12 z-20 bg-[#02050A]/80 backdrop-blur-xl"
+          transition={{ delay: 0.8, duration: 1 }}
+          className="w-full border-t border-white/10 py-8 flex flex-col md:flex-row items-center justify-between px-6 md:px-16 z-20 bg-[#02050A]/90 backdrop-blur-xl"
         >
-           <div className="flex items-center gap-2 mb-4 md:mb-0">
-              <Scissors className="w-4 h-4 text-[#C88E70]" />
-              <span className="text-white font-serif text-lg tracking-widest uppercase">SUA BARBEARIA</span>
+           <div className="mb-4 md:mb-0">
+              <LogoLasBarber variant="horizontal" size={32} />
            </div>
-           <p className="text-gray-600 text-[10px] tracking-[0.3em] uppercase">
-             © {new Date().getFullYear()} O PADRÃO DE EXCELÊNCIA.
+           <p className="text-gray-400 text-[10px] tracking-[0.3em] uppercase font-mono">
+             © {new Date().getFullYear()} O PADRÃO DE EXCELÊNCIA • LUCAS AUGUSTO.
            </p>
-           <div className="flex gap-6 mt-4 md:mt-0">
-              <a href="#" className="text-gray-500 hover:text-[#C88E70] transition-colors">Instagram</a>
-              <a href="#" className="text-gray-500 hover:text-[#C88E70] transition-colors"><MapPin className="w-4 h-4" /></a>
+           <div className="flex items-center gap-6 mt-4 md:mt-0 text-xs">
+              <a 
+                href="https://www.instagram.com/lasbarberstudio_" 
+                target="_blank" 
+                rel="noreferrer" 
+                className="text-gray-300 hover:text-[#DFBA73] transition-colors font-mono uppercase tracking-wider"
+              >
+                Instagram
+              </a>
+              <a 
+                href="https://www.google.com/search?q=LAS+BARBER+STUDIO+COMODORO&client=opera-gx&hs=zgZ&sca_esv=fa5a74c15ed6cc46&sxsrf=AKL5yDh53rRfeyC4nYumBOx-InFmhxDS5A:1793932773239&udm=local&lsack=5T3tauGWDp-q1sQPk6_y0Qk&sa=X&ved=2ahUKEwihncytqPKXAxUflZUCHZOXPJoQjGp6BAggEAE&biw=1919&bih=969&dpr=1#" 
+                target="_blank" 
+                rel="noreferrer" 
+                className="text-gray-300 hover:text-[#DFBA73] transition-colors flex items-center gap-1 font-mono uppercase tracking-wider"
+              >
+                <MapPin className="w-3.5 h-3.5 text-[#DFBA73]" /> Localização • Comodoro MT
+              </a>
            </div>
         </motion.footer>
       </section>
+
+      {/* BOTÃO FLUTUANTE DE WHATSAPP / SOCIAL */}
+      <FloatingSocialButtons />
 
     </div>
   );
