@@ -6,7 +6,7 @@ import { MapPin, Clock, ChevronRight, Play, Pause, Volume2, VolumeX, Star, Exter
 import LogoLasBarber from "@/components/LogoLasBarber";
 
 const GOOGLE_MAPS_URL = "https://share.google/chfF9rq5kwguwJSIE";
-const GOOGLE_REVIEW_URL = "https://share.google/chfF9rq5kwguwJSIE";
+const GOOGLE_REVIEW_URL = "https://www.google.com/search?client=opera-gx&hs=HhZ&sca_esv=fa5a74c15ed6cc46&cs=1&output=search&kgmid=/g/11_0284hx4&q=Las+Barber+Studio&shem=dlvs1,epsd1,esd2e,ltae,rimspwouoe,sdpie&shndl=30&source=sh/x/loc/uni/m1/1&kgs=eed53e1d4b22e769#lrd=/g/11_0284hx4,3,,,";
 
 const GALLERY_PHOTOS = [
   {

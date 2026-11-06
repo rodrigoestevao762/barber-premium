@@ -363,7 +363,7 @@ export default function Home() {
 
               {/* 05 Avaliação no Google */}
               <a
-                href="https://share.google/chfF9rq5kwguwJSIE"
+                href="https://www.google.com/search?client=opera-gx&hs=HhZ&sca_esv=fa5a74c15ed6cc46&cs=1&output=search&kgmid=/g/11_0284hx4&q=Las+Barber+Studio&shem=dlvs1,epsd1,esd2e,ltae,rimspwouoe,sdpie&shndl=30&source=sh/x/loc/uni/m1/1&kgs=eed53e1d4b22e769#lrd=/g/11_0284hx4,3,,,"
                 target="_blank"
                 rel="noopener noreferrer"
                 onClick={() => setIsMobileMenuOpen(false)}
@@ -454,11 +454,11 @@ export default function Home() {
                 scale: idx === currentImage ? 1 : 1.04,
               }}
               transition={{ duration: 1.2, ease: [0.4, 0, 0.2, 1] }}
-              className="absolute inset-0 bg-cover bg-center will-change-transform transform-gpu grayscale-0 md:grayscale md:hover:grayscale-0 transition-[filter] duration-700"
+              className="absolute inset-0 bg-cover bg-center will-change-transform transform-gpu filter brightness-[1.06] contrast-[1.04] saturate-[1.12]"
               style={{ backgroundImage: `url(${img})` }}
             />
           ))}
-          <div className="absolute inset-0 bg-gradient-to-b from-[#050608]/50 via-[#050608]/40 to-[#050608] pointer-events-none" />
+          <div className="absolute inset-0 bg-gradient-to-b from-[#050608]/30 via-transparent to-[#050608]/90 pointer-events-none" />
         </motion.div>
 
         {/* Textos Centrais com Máscara */}
