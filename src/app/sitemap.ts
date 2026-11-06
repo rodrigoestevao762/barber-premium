@@ -1,7 +1,7 @@
 import { MetadataRoute } from 'next';
 
 export default function sitemap(): MetadataRoute.Sitemap {
-  const baseUrl = process.env.NEXTAUTH_URL || 'https://las-barber-studio.vercel.app';
+  const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://lasbarberstudio.com.br';
 
   return [
     {
