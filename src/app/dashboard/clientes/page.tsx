@@ -91,21 +91,33 @@ export default async function ClientesPage() {
     }
 
     if (!client) {
+      const aptDateStr = apt.date ? (apt.date instanceof Date ? apt.date.toISOString() : String(apt.date)) : new Date().toISOString();
       client = {
         id: apt.user.id || `c-${Date.now()}`,
         name: apt.user.name || 'Cliente VIP',
         email: apt.user.email || null,
         phone: apt.user.phone || null,
-        createdAt: apt.createdAt || apt.date || new Date().toISOString(),
+        createdAt: apt.createdAt ? (apt.createdAt instanceof Date ? apt.createdAt.toISOString() : String(apt.createdAt)) : aptDateStr,
         totalAppointments: 0,
       };
       clientsMap.set(key, client);
     }
 
     client.totalAppointments += 1;
-    if (!client.lastServiceName && apt.service?.name) {
+
+    // Atualiza para a data do último serviço mais recente
+    const rawAptDate = apt.date ? (apt.date instanceof Date ? apt.date.toISOString() : String(apt.date)) : null;
+    if (rawAptDate) {
+      const currentLatestTime = client.lastAppointmentDate ? new Date(client.lastAppointmentDate).getTime() : 0;
+      const aptTime = new Date(rawAptDate).getTime();
+      if (!client.lastAppointmentDate || aptTime >= currentLatestTime) {
+        client.lastAppointmentDate = rawAptDate;
+        if (apt.service?.name) {
+          client.lastServiceName = apt.service.name;
+        }
+      }
+    } else if (!client.lastServiceName && apt.service?.name) {
       client.lastServiceName = apt.service.name;
-      client.lastAppointmentDate = apt.date;
     }
   });
 

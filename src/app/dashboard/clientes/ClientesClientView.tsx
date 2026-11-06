@@ -122,6 +122,25 @@ export default function ClientesClientView({ initialClients }: { initialClients:
               }
             } catch (_) {}
 
+            let formattedLastService: string | null = null;
+            if (client.lastAppointmentDate) {
+              try {
+                const d = new Date(client.lastAppointmentDate);
+                if (!isNaN(d.getTime())) {
+                  const dateStr = d.toLocaleDateString("pt-BR", {
+                    day: "2-digit",
+                    month: "2-digit",
+                    year: "numeric",
+                    timeZone: "America/Sao_Paulo",
+                  });
+                  const rawStr = String(client.lastAppointmentDate);
+                  const timeMatch = rawStr.match(/T(\d{2}:\d{2})/);
+                  const timeStr = timeMatch ? ` às ${timeMatch[1]}` : "";
+                  formattedLastService = `${dateStr}${timeStr}`;
+                }
+              } catch (_) {}
+            }
+
             return (
               <div 
                 key={client.id}
@@ -152,8 +171,8 @@ export default function ClientesClientView({ initialClients }: { initialClients:
                     </span>
                   </div>
 
-                  {/* Detalhes de Contato */}
-                  <div className="space-y-2.5 py-3 border-y border-white/5 font-mono text-xs">
+                  {/* Detalhes de Contato & Histórico de Atendimento */}
+                  <div className="space-y-3 py-3.5 border-y border-white/5 font-mono text-xs">
                     <div className="flex items-center gap-2.5 text-gray-300">
                       <Phone className="w-3.5 h-3.5 text-[#DFBA73] shrink-0" />
                       <span className="truncate">{rawPhone || "WhatsApp não informado"}</span>
@@ -164,12 +183,29 @@ export default function ClientesClientView({ initialClients }: { initialClients:
                       <span className="truncate">{client.email || "E-mail não informado"}</span>
                     </div>
 
-                    {client.lastServiceName && (
-                      <div className="flex items-center gap-2.5 text-gray-400 text-[11px] pt-1">
-                        <Calendar className="w-3.5 h-3.5 text-gray-500 shrink-0" />
-                        <span className="truncate">Último: <strong className="text-white font-normal">{client.lastServiceName}</strong></span>
+                    {/* Data do Último Serviço em Destaque */}
+                    <div className="pt-2 border-t border-white/5">
+                      <div className="flex items-center gap-1.5 text-[10px] uppercase tracking-wider text-gray-400 mb-1.5">
+                        <Calendar className="w-3.5 h-3.5 text-[#DFBA73]" />
+                        <span>Data do Último Serviço:</span>
                       </div>
-                    )}
+                      {formattedLastService ? (
+                        <div className="bg-[#DFBA73]/5 border border-[#DFBA73]/25 rounded-xl px-3 py-2 flex items-center justify-between gap-2">
+                          <span className="text-[#F5D799] font-bold text-xs tracking-wide">
+                            {formattedLastService}
+                          </span>
+                          {client.lastServiceName && (
+                            <span className="text-gray-300 text-[11px] truncate font-sans font-light">
+                              {client.lastServiceName}
+                            </span>
+                          )}
+                        </div>
+                      ) : (
+                        <div className="bg-white/[0.02] border border-white/5 rounded-xl px-3 py-2 text-gray-500 text-[11px] italic">
+                          Nenhum serviço realizado ainda
+                        </div>
+                      )}
+                    </div>
                   </div>
                 </div>
 
@@ -203,3 +239,4 @@ export default function ClientesClientView({ initialClients }: { initialClients:
     </div>
   );
 }
+
