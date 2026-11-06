@@ -5,7 +5,7 @@ const resendApiKey = process.env.RESEND_API_KEY;
 export const resend = resendApiKey ? new Resend(resendApiKey) : null;
 
 const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || "https://lasbarberstudio.com.br";
-const DEFAULT_FROM = process.env.RESEND_FROM || "LAS Barber Studio <onboarding@resend.dev>";
+const DEFAULT_FROM = process.env.RESEND_FROM || "LAS Barber Studio <agendamento@lasbarberstudio.com.br>";
 
 /**
  * 1. Confirmação de Agendamento Enviada para o Cliente VIP
