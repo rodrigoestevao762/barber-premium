@@ -30,7 +30,8 @@ export default async function ClientesPage() {
     }
   });
 
-  // 3. Carrega clientes do banco de dados relacional (Postgres / Supabase)
+  // 3. Carrega clientes e agendamentos do banco de dados relacional (Postgres / Neon)
+  let dbAppointments: any[] = [];
   try {
     const dbClients = await prisma.user.findMany({
       where: {
@@ -58,10 +59,19 @@ export default async function ClientesPage() {
         }
       }
     });
+
+    dbAppointments = await prisma.appointment.findMany({
+      include: { service: true, user: true },
+      orderBy: { date: 'desc' },
+    });
   } catch (_) {}
 
-  // 4. Integra agendamentos para contabilizar visitas e incluir clientes que agendaram sem conta prévia
-  allAppointments.forEach((apt) => {
+  // 4. Integra agendamentos (Banco + Memória) para contabilizar visitas e histórico
+  const aptsMap = new Map<string, any>();
+  allAppointments.forEach((a) => aptsMap.set(a.id, a));
+  dbAppointments.forEach((a) => aptsMap.set(a.id, a));
+
+  Array.from(aptsMap.values()).forEach((apt) => {
     if (!apt.user) return;
     const cleanPhone = apt.user.phone ? apt.user.phone.replace(/\D/g, "") : "";
     const email = apt.user.email ? apt.user.email.toLowerCase().trim() : "";
