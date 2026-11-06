@@ -122,7 +122,7 @@ export async function sendAppointmentConfirmationEmail({
               </div>
               <div class="detail-row">
                 <span class="detail-label">Localização</span>
-                <span class="detail-value">Rua dos Ipês, Nº 360 · Centro, Comodoro - MT</span>
+                <span class="detail-value">Rua dos Ipês, Nº 365E · Centro, Comodoro - MT</span>
               </div>
             </div>
 
@@ -147,7 +147,7 @@ export async function sendAppointmentConfirmationEmail({
           </div>
 
           <div class="footer">
-            &copy; ${new Date().getFullYear()} LAS Barber Studio • Rua dos Ipês, Nº 360, Centro — Comodoro - MT
+            &copy; ${new Date().getFullYear()} LAS Barber Studio • Rua dos Ipês, Nº 365E, Centro — Comodoro - MT
           </div>
         </body>
         </html>
@@ -371,7 +371,7 @@ export async function sendPasswordResetEmail({
           </div>
 
           <div class="footer">
-            &copy; ${new Date().getFullYear()} LAS Barber Studio • Rua dos Ipês, Nº 360, Centro — Comodoro - MT
+            &copy; ${new Date().getFullYear()} LAS Barber Studio • Rua dos Ipês, Nº 365E, Centro — Comodoro - MT
           </div>
         </body>
         </html>

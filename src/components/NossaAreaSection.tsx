@@ -357,7 +357,7 @@ export default function NossaAreaSection() {
                   <span className="text-[10px] uppercase tracking-[0.3em] text-gray-300 font-mono font-semibold">Localização Oficial</span>
                 </div>
                 <p className="text-gray-200 text-sm font-light leading-relaxed">
-                  Rua dos Ipês, Nº 360<br />
+                  Rua dos Ipês, Nº 365E<br />
                   <span className="text-gray-400">Centro · CEP 78310-000</span><br />
                   <span className="text-[#DFBA73] text-xs font-semibold tracking-wide">Comodoro – MT</span>
                 </p>

@@ -89,7 +89,7 @@ export default function ServicesMenuSection({ onSelectService }: ServicesMenuSec
           <div className="flex flex-col sm:flex-row md:flex-col lg:flex-row items-start sm:items-center gap-2.5 text-xs font-mono">
             <div className="flex items-center gap-2 px-3.5 py-2 rounded-xl bg-white/[0.04] border border-[#DFBA73]/30 text-gray-200 backdrop-blur-md shadow-md">
               <MapPin className="w-3.5 h-3.5 text-[#DFBA73] shrink-0" />
-              <span>Rua dos Ipês, 360 — Centro, Comodoro - MT</span>
+              <span>Rua dos Ipês, 365E — Centro, Comodoro - MT</span>
             </div>
             <div className="flex items-center gap-2 px-3.5 py-2 rounded-xl bg-[#DFBA73]/15 border border-[#DFBA73]/40 text-[#F5D799] font-bold backdrop-blur-md shadow-md shadow-[#DFBA73]/10">
               <Clock className="w-3.5 h-3.5 shrink-0" />

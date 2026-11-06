@@ -95,7 +95,7 @@ const jsonLd = {
   "priceRange": "$$",
   "address": {
     "@type": "PostalAddress",
-    "streetAddress": "Rua dos Ipês, Nº 360",
+    "streetAddress": "Rua dos Ipês, Nº 365E",
     "addressLocality": "Comodoro",
     "addressRegion": "MT",
     "postalCode": "78310-000",

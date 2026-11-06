@@ -303,7 +303,7 @@ export default function Home() {
                       O Estúdio & Localização
                     </span>
                     <span className="text-[11px] text-gray-400 font-light">
-                      Rua dos Ipês, Nº 360 · Centro, Comodoro - MT
+                      Rua dos Ipês, Nº 365E · Centro, Comodoro - MT
                     </span>
                   </div>
                 </div>
