@@ -5,8 +5,8 @@ import { useRef, useState } from "react";
 import { MapPin, Clock, ChevronRight, Play, Pause, Volume2, VolumeX, Star, ExternalLink, Sparkles } from "lucide-react";
 import LogoLasBarber from "@/components/LogoLasBarber";
 
-const GOOGLE_MAPS_URL = "https://www.google.com/search?q=LAS+BARBER+STUDIO+COMODORO&client=opera-gx&hs=zgZ&sca_esv=fa5a74c15ed6cc46&sxsrf=AKL5yDh53rRfeyC4nYumBOx-InFmhxDS5A:1793932773239&udm=local&lsack=5T3tauGWDp-q1sQPk6_y0Qk&sa=X&ved=2ahUKEwihncytqPKXAxUflZUCHZOXPJoQjGp6BAggEAE&biw=1919&bih=969&dpr=1#";
-const GOOGLE_REVIEW_URL = "https://www.google.com/search?q=LAS+BARBER+STUDIO+COMODORO&client=opera-gx&hs=zgZ&sca_esv=fa5a74c15ed6cc46&sxsrf=AKL5yDh53rRfeyC4nYumBOx-InFmhxDS5A:1793932773239&udm=local&lsack=5T3tauGWDp-q1sQPk6_y0Qk&sa=X&ved=2ahUKEwihncytqPKXAxUflZUCHZOXPJoQjGp6BAggEAE&biw=1919&bih=969&dpr=1#";
+const GOOGLE_MAPS_URL = "https://share.google/chfF9rq5kwguwJSIE";
+const GOOGLE_REVIEW_URL = "https://share.google/chfF9rq5kwguwJSIE";
 
 const GALLERY_PHOTOS = [
   {

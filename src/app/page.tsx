@@ -363,7 +363,7 @@ export default function Home() {
 
               {/* 05 Avaliação no Google */}
               <a
-                href="https://www.google.com/search?q=LAS+BARBER+STUDIO+COMODORO&client=opera-gx&hs=zgZ&sca_esv=fa5a74c15ed6cc46&sxsrf=AKL5yDh53rRfeyC4nYumBOx-InFmhxDS5A:1793932773239&udm=local&lsack=5T3tauGWDp-q1sQPk6_y0Qk&sa=X&ved=2ahUKEwihncytqPKXAxUflZUCHZOXPJoQjGp6BAggEAE&biw=1919&bih=969&dpr=1#"
+                href="https://share.google/chfF9rq5kwguwJSIE"
                 target="_blank"
                 rel="noopener noreferrer"
                 onClick={() => setIsMobileMenuOpen(false)}
@@ -676,7 +676,7 @@ export default function Home() {
                 Instagram
               </a>
               <a 
-                href="https://www.google.com/search?q=LAS+BARBER+STUDIO+COMODORO&client=opera-gx&hs=zgZ&sca_esv=fa5a74c15ed6cc46&sxsrf=AKL5yDh53rRfeyC4nYumBOx-InFmhxDS5A:1793932773239&udm=local&lsack=5T3tauGWDp-q1sQPk6_y0Qk&sa=X&ved=2ahUKEwihncytqPKXAxUflZUCHZOXPJoQjGp6BAggEAE&biw=1919&bih=969&dpr=1#" 
+                href="https://share.google/chfF9rq5kwguwJSIE" 
                 target="_blank" 
                 rel="noreferrer" 
                 className="text-gray-300 hover:text-[#DFBA73] transition-colors flex items-center gap-1 font-mono uppercase tracking-wider"

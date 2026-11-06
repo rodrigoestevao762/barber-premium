@@ -126,9 +126,11 @@ const jsonLd = {
     "bestRating": "5",
     "ratingCount": "48"
   },
+  "hasMap": "https://share.google/chfF9rq5kwguwJSIE",
   "sameAs": [
     "https://www.instagram.com/lasbarberstudio_",
-    "https://www.google.com/search?q=LAS+BARBER+STUDIO+COMODORO"
+    "https://share.google/chfF9rq5kwguwJSIE",
+    "https://www.google.com/search?kgmid=/g/11_0284hx4&q=Las+Barber+Studio"
   ]
 };
 
