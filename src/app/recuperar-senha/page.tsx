@@ -112,8 +112,12 @@ function ResetPasswordForm() {
                 type="password"
                 value={newPassword}
                 onChange={(e) => setNewPassword(e.target.value)}
+                autoComplete="new-password"
+                autoCapitalize="none"
+                autoCorrect="off"
+                spellCheck={false}
                 placeholder="Digite a nova senha"
-                className="w-full bg-white/[0.03] border border-white/10 rounded-2xl py-3.5 pl-11 pr-4 text-white text-sm focus:border-[#DFBA73] focus:outline-none transition-colors"
+                className="w-full bg-white/[0.04] border border-white/10 rounded-2xl py-3.5 pl-11 pr-4 text-white text-base sm:text-sm focus:border-[#DFBA73] focus:outline-none transition-colors duration-150 font-sans"
               />
             </div>
           </div>
@@ -131,8 +135,12 @@ function ResetPasswordForm() {
                 type="password"
                 value={confirmPassword}
                 onChange={(e) => setConfirmPassword(e.target.value)}
+                autoComplete="new-password"
+                autoCapitalize="none"
+                autoCorrect="off"
+                spellCheck={false}
                 placeholder="Repita a nova senha"
-                className="w-full bg-white/[0.03] border border-white/10 rounded-2xl py-3.5 pl-11 pr-4 text-white text-sm focus:border-[#DFBA73] focus:outline-none transition-colors"
+                className="w-full bg-white/[0.04] border border-white/10 rounded-2xl py-3.5 pl-11 pr-4 text-white text-base sm:text-sm focus:border-[#DFBA73] focus:outline-none transition-colors duration-150 font-sans"
               />
             </div>
           </div>
@@ -159,7 +167,10 @@ function ResetPasswordForm() {
 
 export default function RecuperarSenhaPage() {
   return (
-    <div className="min-h-screen bg-[#050608] flex items-center justify-center p-6 text-white selection:bg-[#DFBA73] selection:text-black relative overflow-hidden font-sans">
+    <div 
+      className="min-h-screen bg-[#050608] flex items-center justify-center p-6 text-white selection:bg-[#DFBA73] selection:text-black relative overflow-hidden font-sans"
+      style={{ paddingTop: "max(calc(env(safe-area-inset-top, 0px) + 2rem), 3rem)" }}
+    >
       <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[350px] bg-[#DFBA73]/10 blur-[150px] pointer-events-none rounded-full" />
       <Suspense fallback={<div className="text-[#DFBA73] animate-pulse font-mono text-xs">Carregando...</div>}>
         <ResetPasswordForm />

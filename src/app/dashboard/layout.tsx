@@ -135,8 +135,11 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         </button>
       </nav>
 
-      {/* Mobile Top Bar */}
-      <div className="md:hidden sticky top-0 z-40 bg-[#050608]/95 backdrop-blur-xl border-b border-white/10 px-4 py-3 flex items-center justify-between">
+      {/* Mobile Top Bar com Safe Area para desviar da câmera do celular */}
+      <div 
+        className="md:hidden sticky top-0 z-40 bg-[#050608]/95 backdrop-blur-xl border-b border-white/10 px-4 pb-3.5 flex items-center justify-between"
+        style={{ paddingTop: "max(calc(env(safe-area-inset-top, 0px) + 0.85rem), 2.75rem)" }}
+      >
         <Link href="/dashboard" className="flex items-center gap-2.5">
           <LogoLasBarber variant="emblem" size={28} />
           <div className="flex flex-col">

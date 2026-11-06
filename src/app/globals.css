@@ -35,10 +35,11 @@ html {
   width: 100% !important;
 }
 
-/* Previne zoom automático invasivo do iOS Safari e Android ao focar inputs */
+/* Previne zoom automático invasivo do iOS Safari e Android e remove delay de toque ao focar inputs */
 @media screen and (max-width: 768px) {
   input, select, textarea {
     font-size: 16px !important;
+    touch-action: manipulation;
   }
 }
 

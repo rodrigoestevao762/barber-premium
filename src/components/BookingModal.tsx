@@ -59,7 +59,7 @@ export default function BookingModal({
   const [clientName, setClientName] = useState("");
   const [clientEmail, setClientEmail] = useState("");
   const [clientPhone, setClientPhone] = useState("");
-  const [clientPassword, setClientPassword] = useState("123");
+  const [clientPassword, setClientPassword] = useState("");
   const [paymentMethod, setPaymentMethod] = useState<string>("PIX");
   const [isEditingData, setIsEditingData] = useState(false);
 
@@ -99,7 +99,7 @@ export default function BookingModal({
       if (effectiveName) setClientName(effectiveName);
       if (effectiveEmail) setClientEmail(effectiveEmail);
       if (effectivePhone) setClientPhone(effectivePhone);
-      setClientPassword("123");
+      setClientPassword("");
       setIsEditingData(false);
     }
   }, [isOpen, session, initialUserData]);
@@ -244,6 +244,11 @@ export default function BookingModal({
       return;
     }
 
+    if (!isLoggedIn && !clientPassword.trim()) {
+      setErrorMsg("Por favor, crie uma senha de acesso para sua conta VIP.");
+      return;
+    }
+
     if (!selectedDate || !selectedTime) {
       setErrorMsg("Por favor, selecione a data e o horário desejado.");
       return;
@@ -259,7 +264,7 @@ export default function BookingModal({
     setErrorMsg("");
 
     const fullDate = `${selectedDate}T${selectedTime}:00-03:00`;
-    const finalPassword = clientPassword.trim() || "123";
+    const finalPassword = clientPassword.trim();
 
     try {
       const res = await fetch("/api/appointments", {
@@ -325,7 +330,7 @@ export default function BookingModal({
       await signIn("credentials", {
         identifier: loginId,
         phone: loginId,
-        password: clientPassword || "123",
+        password: clientPassword.trim(),
         redirect: false,
       });
     } catch (_) {}
@@ -501,7 +506,7 @@ export default function BookingModal({
                   </div>
                   <div>
                     <span className="text-gray-400 block text-[10px] uppercase">Senha de Acesso:</span>
-                    <strong className="text-[#F5D799]">{clientPassword || "123"}</strong>
+                    <strong className="text-[#F5D799]">{clientPassword ? "••••••••" : "Cadastrada com sucesso"}</strong>
                   </div>
                 </div>
                 <p className="text-[10px] text-gray-400 font-mono mt-2 pt-2 border-t border-white/5">
@@ -855,7 +860,8 @@ export default function BookingModal({
                                   required
                                   value={clientPassword}
                                   onChange={(e) => setClientPassword(e.target.value)}
-                                  placeholder="Crie uma senha de acesso"
+                                  placeholder="Crie sua senha de acesso"
+                                  autoComplete="new-password"
                                   className="w-full bg-white/[0.03] border border-white/10 rounded-xl py-2.5 px-3.5 text-white text-base sm:text-xs font-mono focus:border-[#DFBA73] focus:outline-none transition-colors"
                                 />
                                 <p className="text-[10px] text-gray-500 font-mono mt-1">

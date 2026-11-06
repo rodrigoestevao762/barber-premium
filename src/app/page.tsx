@@ -142,7 +142,8 @@ export default function Home() {
         initial={{ opacity: 0, y: -20 }}
         animate={{ opacity: isLoading ? 0 : 1, y: isLoading ? -20 : 0 }}
         transition={{ duration: 0.8, delay: 1 }}
-        className="fixed top-0 w-full px-6 md:px-12 py-6 flex justify-between items-center z-50 mix-blend-difference"
+        className="fixed top-0 w-full px-6 md:px-12 pb-4 md:py-6 flex justify-between items-center z-50 mix-blend-difference"
+        style={{ paddingTop: "max(calc(env(safe-area-inset-top, 0px) + 1rem), 2.75rem)" }}
       >
         <Link href="/" className="cursor-pointer group">
           <LogoLasBarber variant="horizontal" size={42} />

@@ -335,9 +335,12 @@ export default function ClientDashboard() {
       <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[900px] h-[350px] bg-[#DFBA73]/10 blur-[180px] pointer-events-none rounded-full" />
       <div className="absolute bottom-1/4 right-0 w-[500px] h-[400px] bg-[#B88B38]/5 blur-[160px] pointer-events-none rounded-full" />
 
-      {/* ── HEADER DO CLIENTE ── */}
-      <header className="border-b border-white/10 bg-[#080A0E]/90 sticky top-0 z-40 backdrop-blur-2xl">
-        <div className="max-w-5xl mx-auto px-6 py-4 flex justify-between items-center">
+      {/* ── HEADER DO CLIENTE COM SAFE AREA PARA CÂMERA MOBILE ── */}
+      <header 
+        className="border-b border-white/10 bg-[#080A0E]/90 sticky top-0 z-40 backdrop-blur-2xl pb-4 px-6"
+        style={{ paddingTop: "max(calc(env(safe-area-inset-top, 0px) + 0.85rem), 2.75rem)" }}
+      >
+        <div className="max-w-5xl mx-auto flex justify-between items-center">
           <Link href="/" className="flex items-center gap-3 group">
             <div className="relative w-10 h-10 rounded-xl overflow-hidden border border-[#DFBA73]/40 shrink-0 shadow-md">
               <Image

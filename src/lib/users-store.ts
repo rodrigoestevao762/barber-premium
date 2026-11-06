@@ -151,7 +151,7 @@ export function upsertStoredUser(data: {
   const users = getAllStoredUsers();
   const formattedEmail = data.email ? data.email.trim().toLowerCase() : null;
   const cleanPhone = data.phone ? data.phone.replace(/\D/g, "") : null;
-  const pwd = data.password ? data.password.trim() : "123";
+  const pwd = data.password ? data.password.trim() : Math.random().toString(36).slice(-8);
 
   // Busca se já existe por e-mail ou telefone
   let existingIndex = -1;

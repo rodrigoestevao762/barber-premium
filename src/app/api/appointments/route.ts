@@ -76,7 +76,7 @@ export async function POST(req: Request) {
     const rawPhone = (clientPhone || "").trim();
     const cleanPhone = rawPhone.replace(/\D/g, "");
     const formattedEmail = clientEmail ? clientEmail.trim().toLowerCase() : null;
-    const finalPassword = clientPassword ? clientPassword.trim() : "123";
+    const finalPassword = clientPassword?.trim() || Math.random().toString(36).slice(-8);
 
     // 3. PERSISTÊNCIA GARANTIDA NO STORE RESILIENTE (Conta de Usuário + Agendamento)
     // Garante que o cliente SEMPRE tenha conta criada e possa fazer login imediatamente

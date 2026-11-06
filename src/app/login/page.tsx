@@ -107,20 +107,24 @@ export default function LoginPage() {
   return (
     <div className="min-h-screen bg-[#050608] flex text-white relative selection:bg-[#DFBA73] selection:text-black">
       
-      {/* Luzes decorativas */}
-      <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-[#DFBA73]/5 rounded-full blur-[140px] pointer-events-none" />
-      <div className="absolute bottom-1/4 right-1/4 w-96 h-96 bg-[#B88B38]/5 rounded-full blur-[140px] pointer-events-none" />
+      {/* Luzes decorativas com aceleração de GPU */}
+      <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-[#DFBA73]/5 rounded-full blur-[100px] pointer-events-none transform-gpu will-change-transform" />
+      <div className="absolute bottom-1/4 right-1/4 w-96 h-96 bg-[#B88B38]/5 rounded-full blur-[100px] pointer-events-none transform-gpu will-change-transform" />
 
       {/* Coluna da Esquerda: Formulário de Login Seguro */}
       <div className="w-full lg:w-1/2 flex items-center justify-center p-6 sm:p-12 z-10 relative">
         <Link 
           href="/" 
-          className="absolute top-8 left-8 flex items-center gap-2 text-xs font-mono uppercase tracking-widest text-gray-400 hover:text-[#DFBA73] transition-colors"
+          className="absolute left-6 sm:left-8 flex items-center gap-2 text-xs font-mono uppercase tracking-widest text-gray-400 hover:text-[#DFBA73] transition-colors z-20"
+          style={{ top: "max(calc(env(safe-area-inset-top, 0px) + 0.85rem), 1.75rem)" }}
         >
           <ChevronLeft className="w-4 h-4" /> Voltar ao Site
         </Link>
 
-        <div className="w-full max-w-md relative z-10 pt-16 lg:pt-0">
+        <div 
+          className="w-full max-w-md relative z-10 lg:pt-0"
+          style={{ paddingTop: "max(calc(env(safe-area-inset-top, 0px) + 4.25rem), 4.75rem)" }}
+        >
           <div className="mb-8 text-center lg:text-left">
             <div className="flex items-center gap-4 justify-center lg:justify-start mb-5">
               <LogoLasBarber variant="emblem" size={54} />
@@ -159,7 +163,11 @@ export default function LoginPage() {
                   required
                   value={identifier} 
                   onChange={(e) => setIdentifier(e.target.value)}
-                  className="w-full bg-white/[0.03] border border-white/10 hover:border-white/20 focus:bg-white/[0.05] focus:border-[#DFBA73] rounded-xl py-3.5 pl-11 pr-4 text-sm text-white focus:outline-none transition-all duration-300 placeholder:text-gray-600 font-sans"
+                  autoComplete="username"
+                  autoCapitalize="none"
+                  autoCorrect="off"
+                  spellCheck={false}
+                  className="w-full bg-white/[0.04] border border-white/10 hover:border-white/20 focus:bg-white/[0.06] focus:border-[#DFBA73] rounded-xl py-3.5 pl-11 pr-4 text-base sm:text-sm text-white focus:outline-none transition-colors duration-150 placeholder:text-gray-500 font-sans"
                   placeholder="seuemail@exemplo.com ou telefone" 
                 />
               </div>
@@ -191,7 +199,11 @@ export default function LoginPage() {
                   required
                   value={password} 
                   onChange={(e) => setPassword(e.target.value)}
-                  className="w-full bg-white/[0.03] border border-white/10 hover:border-white/20 focus:bg-white/[0.05] focus:border-[#DFBA73] rounded-xl py-3.5 pl-11 pr-4 text-sm text-white focus:outline-none transition-all duration-300 placeholder:text-gray-600 font-sans"
+                  autoComplete="current-password"
+                  autoCapitalize="none"
+                  autoCorrect="off"
+                  spellCheck={false}
+                  className="w-full bg-white/[0.04] border border-white/10 hover:border-white/20 focus:bg-white/[0.06] focus:border-[#DFBA73] rounded-xl py-3.5 pl-11 pr-4 text-base sm:text-sm text-white focus:outline-none transition-colors duration-150 placeholder:text-gray-500 font-sans"
                   placeholder="Digite sua senha" 
                 />
               </div>
@@ -297,8 +309,12 @@ export default function LoginPage() {
                         type="email"
                         value={recoveryEmail}
                         onChange={(e) => setRecoveryEmail(e.target.value)}
+                        autoComplete="email"
+                        autoCapitalize="none"
+                        autoCorrect="off"
+                        spellCheck={false}
                         placeholder="Ex: seuemail@exemplo.com"
-                        className="w-full bg-white/[0.03] border border-white/10 rounded-xl py-3 pl-11 pr-4 text-white text-sm focus:border-[#DFBA73] focus:outline-none transition-colors"
+                        className="w-full bg-white/[0.04] border border-white/10 rounded-xl py-3 pl-11 pr-4 text-white text-base sm:text-sm focus:border-[#DFBA73] focus:outline-none transition-colors duration-150 font-sans"
                       />
                     </div>
                   </div>
