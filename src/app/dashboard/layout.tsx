@@ -5,13 +5,14 @@ import { LayoutDashboard, Users, Calendar, Settings, LogOut, Bell, Wallet, Archi
 import Link from "next/link";
 import { useState, useEffect } from "react";
 import { signOut, useSession } from "next-auth/react";
-import { useRouter } from "next/navigation";
+import { useRouter, usePathname } from "next/navigation";
 import { getDisplayTime } from "@/lib/timezone";
 import LogoLasBarber from "@/components/LogoLasBarber";
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   const { data: session, status } = useSession();
   const router = useRouter();
+  const pathname = usePathname();
   const [isNotifOpen, setIsNotifOpen] = useState(false);
   const [notifications, setNotifications] = useState<any[]>([]);
   const [greeting, setGreeting] = useState("BOM DIA");
@@ -64,19 +65,19 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
   const navItems = isAdmin
     ? [
-        { id: "/dashboard", icon: LayoutDashboard, label: "Visão Geral (Studio)" },
-        { id: "/dashboard/agenda", icon: Calendar, label: "Agenda Geral" },
-        { id: "/dashboard/financeiro", icon: Wallet, label: "Financeiro Studio" },
-        { id: "/dashboard/fechamento", icon: Archive, label: "Fechamento de Caixa" },
-        { id: "/dashboard/clientes", icon: Users, label: "Clientes" },
-        { id: "/dashboard/settings", icon: Settings, label: "Ajustes" },
+        { id: "/dashboard", icon: LayoutDashboard, label: "Visão Geral", shortLabel: "Início" },
+        { id: "/dashboard/agenda", icon: Calendar, label: "Agenda Geral", shortLabel: "Agenda" },
+        { id: "/dashboard/clientes", icon: Users, label: "Clientes VIP", shortLabel: "Clientes" },
+        { id: "/dashboard/financeiro", icon: Wallet, label: "Financeiro Studio", shortLabel: "Finanças" },
+        { id: "/dashboard/fechamento", icon: Archive, label: "Fechamento de Caixa", shortLabel: "Caixa" },
+        { id: "/dashboard/settings", icon: Settings, label: "Ajustes", shortLabel: "Ajustes" },
       ]
     : [
-        { id: "/dashboard", icon: LayoutDashboard, label: "Meus Atendimentos" },
-        { id: "/dashboard/agenda", icon: Calendar, label: "Minha Agenda" },
-        { id: "/dashboard/financeiro", icon: Wallet, label: "Meu Caixa" },
-        { id: "/dashboard/clientes", icon: Users, label: "Clientes" },
-        { id: "/dashboard/settings", icon: Settings, label: "Meu Perfil" },
+        { id: "/dashboard", icon: LayoutDashboard, label: "Meus Atendimentos", shortLabel: "Início" },
+        { id: "/dashboard/agenda", icon: Calendar, label: "Minha Agenda", shortLabel: "Agenda" },
+        { id: "/dashboard/clientes", icon: Users, label: "Clientes VIP", shortLabel: "Clientes" },
+        { id: "/dashboard/financeiro", icon: Wallet, label: "Meu Caixa", shortLabel: "Caixa" },
+        { id: "/dashboard/settings", icon: Settings, label: "Meu Perfil", shortLabel: "Perfil" },
       ];
 
   const userName = (session?.user?.name || "Lucas Augusto").toUpperCase();
@@ -175,24 +176,33 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         </div>
       </div>
 
-      {/* Mobile Bottom Bar (Barra Inferior Mobile com botão Desconectar real) */}
-      <nav className="md:hidden fixed bottom-0 left-0 w-full h-16 bg-[#050608]/98 border-t border-white/10 z-[100] flex justify-around items-center px-2 pb-safe backdrop-blur-2xl">
-        <Link href="/" className="p-3 text-gray-400 hover:text-[#DFBA73] transition-colors" title="Voltar ao Site">
-          <Home className="w-5 h-5" />
-        </Link>
-        {navItems.slice(0, 4).map((item) => (
-          <Link key={item.id} href={item.id} className="p-3 text-gray-400 hover:text-[#DFBA73] transition-colors">
-            <item.icon className="w-5 h-5" />
-          </Link>
-        ))}
+      {/* Mobile Bottom Bar (Barra Inferior Mobile com todas as abas incluindo Clientes VIP) */}
+      <nav className="md:hidden fixed bottom-0 left-0 w-full h-16 bg-[#050608]/98 border-t border-white/10 z-[100] flex justify-around items-center px-1 pb-safe backdrop-blur-2xl">
+        {navItems.map((item) => {
+          const isActive = pathname === item.id;
+          return (
+            <Link 
+              key={item.id} 
+              href={item.id} 
+              className={`p-1.5 flex flex-col items-center justify-center transition-all ${
+                isActive ? "text-[#DFBA73] scale-105" : "text-gray-400 hover:text-white"
+              }`}
+            >
+              <item.icon className={`w-5 h-5 ${isActive ? "text-[#DFBA73]" : ""}`} />
+              <span className={`text-[9px] font-mono tracking-tight mt-0.5 ${isActive ? "text-[#DFBA73] font-bold" : "text-gray-400"}`}>
+                {item.shortLabel || item.label.split(" ")[0]}
+              </span>
+            </Link>
+          );
+        })}
         {/* Botão Oficial de Desconectar no Mobile */}
         <button 
           onClick={handleSignOut} 
-          className="p-2.5 text-red-400 hover:text-red-300 active:scale-95 transition-all flex flex-col items-center cursor-pointer" 
+          className="p-1.5 text-red-400 hover:text-red-300 active:scale-95 transition-all flex flex-col items-center justify-center cursor-pointer" 
           title="Desconectar da Conta"
         >
           <LogOut className="w-5 h-5" />
-          <span className="text-[8px] font-mono uppercase tracking-wider text-red-400 font-bold mt-0.5">Sair</span>
+          <span className="text-[9px] font-mono tracking-tight text-red-400 font-bold mt-0.5">Sair</span>
         </button>
       </nav>
 
