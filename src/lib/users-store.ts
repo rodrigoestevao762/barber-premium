@@ -181,6 +181,7 @@ export function upsertStoredUser(data: {
       plainPasswordFallback: pwd,
     };
     users[existingIndex] = updated;
+    global.__las_users = users;
     saveUsersToDisk(users);
     return updated;
   }
@@ -198,6 +199,12 @@ export function upsertStoredUser(data: {
   };
 
   users.unshift(newUser);
+  global.__las_users = users;
   saveUsersToDisk(users);
   return newUser;
+}
+
+export function clearAllStoredUsersExceptAdmin(): void {
+  global.__las_users = [...INITIAL_USERS];
+  saveUsersToDisk(global.__las_users);
 }

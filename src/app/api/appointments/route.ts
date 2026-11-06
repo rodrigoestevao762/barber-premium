@@ -8,6 +8,7 @@ import { upsertStoredUser } from '@/lib/users-store';
 import { getBrazilNow, getBrazilDateAndTimeString, parseBrazilDateTime } from '@/lib/timezone';
 import { checkDayStatus } from '@/lib/holidays';
 import { isBarberAvailable } from '@/lib/barber-availability';
+import { sendAppointmentConfirmationEmail, sendNewBookingNotificationToBarber } from '@/lib/resend';
 
 export async function POST(req: Request) {
   try {
@@ -213,6 +214,48 @@ export async function POST(req: Request) {
     } catch (dbErr) {
       // Postgres indisponível — o fluxo segue protegido pelo store resiliente
       console.warn("Aviso: Banco relacional em contingência, dados persistidos no storage blindado.");
+    }
+
+    // 5. DISPARO DE NOTIFICAÇÕES POR E-MAIL RESEND (CLIENTE VIP + BARBEIRO)
+    try {
+      const requestedBrazil = getBrazilDateAndTimeString(appointmentDate);
+      const [year, month, day] = requestedBrazil.date.split("-");
+      const displayDate = `${day}/${month}/${year}`;
+      const displayTime = requestedBrazil.time;
+
+      // 5.1 Envia confirmação com credenciais de acesso VIP para o cliente
+      if (formattedEmail) {
+        sendAppointmentConfirmationEmail({
+          to: formattedEmail,
+          clientName: persistentClient.name,
+          barberName: assignedBarber.name,
+          serviceName: matchedService.name,
+          servicePrice: matchedService.price,
+          serviceDuration: matchedService.duration,
+          appointmentDate: displayDate,
+          appointmentTime: displayTime,
+          paymentMethod: paymentMethod || "PIX",
+          clientEmail: formattedEmail,
+          clientPassword: clientPassword || undefined,
+        }).catch((err) => console.error("Erro assíncrono envio e-mail cliente:", err));
+      }
+
+      // 5.2 Envia alerta imediato de novo agendamento para o Barbeiro Mestre Lucas
+      const barberEmail = assignedBarber.email || "lucastj609@gmail.com";
+      sendNewBookingNotificationToBarber({
+        barberEmail,
+        barberName: assignedBarber.name,
+        clientName: persistentClient.name,
+        clientPhone: persistentClient.phone || rawPhone,
+        clientEmail: formattedEmail || undefined,
+        serviceName: matchedService.name,
+        servicePrice: matchedService.price,
+        appointmentDate: displayDate,
+        appointmentTime: displayTime,
+        paymentMethod: paymentMethod || "PIX",
+      }).catch((err) => console.error("Erro assíncrono envio e-mail barbeiro:", err));
+    } catch (emailErr) {
+      console.error("Aviso: Falha não-bloqueante no envio de notificações:", emailErr);
     }
 
     return NextResponse.json({

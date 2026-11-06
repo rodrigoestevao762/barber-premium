@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { BARBERS } from "@/lib/barbers";
 import { clearAllStoredData } from "@/lib/appointments-store";
+import { clearAllStoredUsersExceptAdmin } from "@/lib/users-store";
 
 export async function GET(req: Request) {
   // Proteção de segurança: apenas requisições com chave de autorização podem executar limpeza
@@ -62,8 +63,9 @@ export async function GET(req: Request) {
       }
     } catch (_) {}
 
-    // 7. Zera o cache em memória
+    // 7. Zera o cache em memória e usuários de teste
     clearAllStoredData();
+    clearAllStoredUsersExceptAdmin();
 
     return NextResponse.json({
       success: true,

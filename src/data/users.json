@@ -1,0 +1,18 @@
+[
+  {
+    "id": "barbeiro-lucas",
+    "name": "Lucas Augusto",
+    "email": "lucastj609@gmail.com",
+    "phone": "5569993783204",
+    "passwordHash": "$2b$10$3nbfFPEGUEz5IOBYGT4GXOax0/yVHF25z9UJHNc8qTYD9aDCU5ulO",
+    "plainPasswordFallback": "123",
+    "role": "ADMIN",
+    "createdAt": "2026-01-01T00:00:00.000Z",
+    "aliases": [
+      "69993783204",
+      "993783204",
+      "6999378-3204",
+      "(69) 99378-3204"
+    ]
+  }
+]
