@@ -3,7 +3,7 @@ import prisma from "@/lib/prisma";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { updateStoredAppointment, getStoredAppointmentById } from "@/lib/appointments-store";
-import { checkDayStatus } from "@/lib/holidays";
+import { checkDayStatusDB, getDayScheduleDB } from "@/lib/studio-schedule";
 import { getBrazilNow, parseBrazilDateTime } from "@/lib/timezone";
 
 export async function POST(req: Request) {
@@ -18,10 +18,24 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Dados incompletos para reagendamento" }, { status: 400 });
     }
 
-    // 1. Valida se a nova data é domingo ou feriado
-    const dayCheck = checkDayStatus(requestedDate);
+    // 1. Valida se a nova data está aberta e fora da pausa de almoço/saída antecipada no PostgreSQL
+    const dayCheck = await checkDayStatusDB(requestedDate);
     if (dayCheck.isClosed) {
       return NextResponse.json({ error: dayCheck.reason }, { status: 400 });
+    }
+
+    const daySchedule = await getDayScheduleDB(requestedDate);
+    if (daySchedule.earlyClosingTime && requestedTime > daySchedule.earlyClosingTime) {
+      return NextResponse.json(
+        { error: `O estúdio encerrará o expediente às ${daySchedule.earlyClosingTime} nesta data.` },
+        { status: 400 }
+      );
+    }
+    if (daySchedule.lunchBreakSlots.includes(requestedTime)) {
+      return NextResponse.json(
+        { error: `O horário das ${requestedTime} está bloqueado para pausa de almoço.` },
+        { status: 400 }
+      );
     }
 
     // 2. Valida se o novo horário não está no passado

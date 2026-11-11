@@ -173,7 +173,7 @@ export default function ClientDashboard() {
       }
 
       const barberId = rescheduleApt.barberId || rescheduleApt.barber?.id || "barbeiro-lucas";
-      fetch(`/api/appointments/available?date=${newRescheduleDate}&barberId=${barberId}`)
+      fetch(`/api/appointments/available?date=${newRescheduleDate}&barberId=${barberId}&t=${Date.now()}`, { cache: "no-store" })
         .then((res) => res.json())
         .then((data) => {
           if (Array.isArray(data.availableTimes)) {

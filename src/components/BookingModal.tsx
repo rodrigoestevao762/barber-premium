@@ -180,7 +180,7 @@ export default function BookingModal({
     const nowTimeStr = `${String(now.getHours()).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")}`;
 
     const barberId = selectedBarber?.id || "barbeiro-lucas";
-    fetch(`/api/appointments/available?date=${selectedDate}&barberId=${barberId}`)
+    fetch(`/api/appointments/available?date=${selectedDate}&barberId=${barberId}&t=${Date.now()}`, { cache: "no-store" })
       .then((res) => res.json())
       .then((data) => {
         if (data.isClosed) {

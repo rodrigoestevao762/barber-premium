@@ -2,36 +2,40 @@ import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { BARBERS } from "@/lib/barbers";
-import { 
-  isDateClosed, 
-  setDateClosed, 
-  getEarlyClosingTime, 
-  setEarlyClosingTime,
-  getLunchBreakTime,
-  setLunchBreakTime
-} from "@/lib/barber-availability";
+import {
+  getDayScheduleDB,
+  setDateClosedDB,
+  setEarlyClosingTimeDB,
+  setLunchBreakTimeDB,
+} from "@/lib/studio-schedule";
 import { getBrazilNow } from "@/lib/timezone";
+
+export const dynamic = "force-dynamic";
 
 export async function GET(req: Request) {
   const { searchParams } = new URL(req.url);
   const dateParam = searchParams.get("date") || getBrazilNow().date;
 
-  const closedThisDate = isDateClosed(dateParam);
-  const earlyClosing = getEarlyClosingTime(dateParam);
-  const lunchBreak = getLunchBreakTime(dateParam);
+  const schedule = await getDayScheduleDB(dateParam);
 
   // Lucas Augusto está sempre disponível na lista de profissionais.
-  // O status de aberto/fechado é avaliado para a data consultada.
+  // O status de aberto/fechado é avaliado para a data consultada no banco PostgreSQL.
   const barbersWithStatus = BARBERS.map((b) => ({
     ...b,
-    isAvailable: !closedThisDate,
-    isDateClosed: closedThisDate,
-    earlyClosingTime: earlyClosing,
-    lunchBreakTime: lunchBreak,
+    isAvailable: !schedule.isClosed,
+    isDateClosed: schedule.isClosed,
+    earlyClosingTime: schedule.earlyClosingTime,
+    lunchBreakTime: schedule.lunchBreakTime,
+    defaultLunchBreakTime: schedule.defaultLunchBreakTime,
+    isLunchBreakFixed: schedule.isLunchBreakFixed,
+    hasLunchDateOverride: schedule.hasLunchDateOverride,
+    lunchBreakSlots: schedule.lunchBreakSlots,
     queryDate: dateParam,
   }));
 
-  return NextResponse.json(barbersWithStatus);
+  return NextResponse.json(barbersWithStatus, {
+    headers: { "Cache-Control": "no-store, no-cache, must-revalidate" },
+  });
 }
 
 export async function PATCH(req: Request) {
@@ -43,38 +47,48 @@ export async function PATCH(req: Request) {
     }
 
     const body = await req.json();
-    const { barberId, isAvailable, date, earlyClosingTime, lunchBreakTime } = body;
-    const targetDate = date || getBrazilNow().date;
+    const {
+      barberId,
+      isAvailable,
+      date,
+      earlyClosingTime,
+      lunchBreakTime,
+      lunchBreakScope,
+    } = body;
+    const targetDate = (date || getBrazilNow().date).substring(0, 10);
 
     if (typeof isAvailable === "boolean") {
-      // isAvailable: false -> fecha a data selecionada
-      // isAvailable: true -> abre a data selecionada
-      setDateClosed(targetDate, !isAvailable);
+      // isAvailable: false -> fecha a data selecionada no banco
+      // isAvailable: true -> abre a data selecionada no banco
+      await setDateClosedDB(targetDate, !isAvailable);
     }
 
     if (earlyClosingTime !== undefined) {
-      setEarlyClosingTime(targetDate, earlyClosingTime || null);
+      await setEarlyClosingTimeDB(targetDate, earlyClosingTime || null);
     }
 
     if (lunchBreakTime !== undefined) {
-      setLunchBreakTime(targetDate, lunchBreakTime || null);
+      const scope = lunchBreakScope === "date" ? "date" : "default";
+      await setLunchBreakTimeDB(targetDate, lunchBreakTime || null, scope);
     }
 
-    const currentClosed = isDateClosed(targetDate);
-    const currentEarly = getEarlyClosingTime(targetDate);
-    const currentLunch = getLunchBreakTime(targetDate);
+    const schedule = await getDayScheduleDB(targetDate);
 
     return NextResponse.json({
       success: true,
       barberId: barberId || "barbeiro-lucas",
       date: targetDate,
-      isAvailable: !currentClosed,
-      isDateClosed: currentClosed,
-      earlyClosingTime: currentEarly,
-      lunchBreakTime: currentLunch,
-      message: currentClosed
+      isAvailable: !schedule.isClosed,
+      isDateClosed: schedule.isClosed,
+      earlyClosingTime: schedule.earlyClosingTime,
+      lunchBreakTime: schedule.lunchBreakTime,
+      defaultLunchBreakTime: schedule.defaultLunchBreakTime,
+      isLunchBreakFixed: schedule.isLunchBreakFixed,
+      hasLunchDateOverride: schedule.hasLunchDateOverride,
+      lunchBreakSlots: schedule.lunchBreakSlots,
+      message: schedule.isClosed
         ? `Studio marcado como FECHADO para o dia ${targetDate.split("-").reverse().join("/")}. Os demais dias permanecem normais.`
-        : `Studio ABERTO para o dia ${targetDate.split("-").reverse().join("/")}.`,
+        : `Escala do Studio atualizada com sucesso em ${targetDate.split("-").reverse().join("/")}.`,
     });
   } catch (error) {
     console.error("Erro ao atualizar escala do studio:", error);

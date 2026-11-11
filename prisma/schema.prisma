@@ -82,3 +82,11 @@ model CashClosing {
   barberRevenues String?  // Stored as JSON string for simplicity
   createdAt      DateTime @default(now())
 }
+
+model StudioSchedule {
+  id               String   @id // "DEFAULT" para configuração fixa/direta diária, ou "YYYY-MM-DD" para dia específico
+  isClosed         Boolean  @default(false)
+  earlyClosingTime String?  // ex: "17:00"
+  lunchBreakTime   String?  // ex: "12:00", "13:00", "12:00-14:00", ou "NONE" para liberar apenas nesta data
+  updatedAt        DateTime @updatedAt
+}

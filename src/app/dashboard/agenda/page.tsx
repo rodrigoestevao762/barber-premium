@@ -13,6 +13,7 @@ import { BARBERS, BarberData } from '@/lib/barbers';
 import { OFFICIAL_SERVICES, ServiceItem } from '@/lib/services';
 import { getDisplayTime, parseBrazilDateTime } from '@/lib/timezone';
 import { checkDayStatus } from '@/lib/holidays';
+import { LunchBreakControl } from '@/components/LunchBreakControl';
 
 export default function AgendaPage() {
   const { data: session } = useSession();
@@ -34,10 +35,22 @@ export default function AgendaPage() {
   });
   const [selectedBarberFilter, setSelectedBarberFilter] = useState<string>("all");
 
-  // Disponibilidade do Dono (Lucas Augusto)
+  // Disponibilidade do Dono (Lucas Augusto) - persistida no Supabase PostgreSQL
   const [isOwnerAvailable, setIsOwnerAvailable] = useState(true);
   const [lunchBreak, setLunchBreak] = useState<string | null>(null);
+  const [defaultLunchBreak, setDefaultLunchBreak] = useState<string | null>(null);
+  const [isLunchBreakFixed, setIsLunchBreakFixed] = useState<boolean>(false);
+  const [hasLunchDateOverride, setHasLunchDateOverride] = useState<boolean>(false);
+  const [lunchBreakScope, setLunchBreakScope] = useState<"default" | "date">("default");
+  const [isSavingLunch, setIsSavingLunch] = useState(false);
   const [isTogglingOwner, setIsTogglingOwner] = useState(false);
+  const [toastMessage, setToastMessage] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!toastMessage) return;
+    const t = setTimeout(() => setToastMessage(null), 5000);
+    return () => clearTimeout(t);
+  }, [toastMessage]);
 
   // Modal Novo Agendamento (Balcão / Manual)
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -122,7 +135,7 @@ export default function AgendaPage() {
 
   // Carrega status de disponibilidade do barbeiro para a data selecionada
   useEffect(() => {
-    fetch(`/api/barbers?date=${selectedDate}`)
+    fetch(`/api/barbers?date=${selectedDate}&t=${Date.now()}`, { cache: "no-store" })
       .then((res) => res.json())
       .then((data) => {
         const list = Array.isArray(data) ? data : (data?.barbers || []);
@@ -130,6 +143,10 @@ export default function AgendaPage() {
         if (owner) {
           setIsOwnerAvailable(owner.isAvailable !== false);
           setLunchBreak(owner.lunchBreakTime || null);
+          setDefaultLunchBreak(owner.defaultLunchBreakTime || null);
+          setIsLunchBreakFixed(Boolean(owner.isLunchBreakFixed));
+          setHasLunchDateOverride(Boolean(owner.hasLunchDateOverride));
+          setLunchBreakScope(owner.hasLunchDateOverride ? "date" : "default");
         }
       })
       .catch(() => {});
@@ -138,6 +155,7 @@ export default function AgendaPage() {
   const toggleOwnerAvailability = async () => {
     setIsTogglingOwner(true);
     const newStatus = !isOwnerAvailable;
+    const formattedDate = selectedDate.split("-").reverse().join("/");
     try {
       const res = await fetch('/api/barbers', {
         method: 'PATCH',
@@ -150,6 +168,9 @@ export default function AgendaPage() {
       });
       if (res.ok) {
         setIsOwnerAvailable(newStatus);
+        setToastMessage(newStatus 
+          ? `Studio ABERTO em ${formattedDate} (salvo no banco).`
+          : `Studio FECHADO em ${formattedDate} (salvo no banco).`);
       }
     } catch (e) {
       console.error(e);
@@ -158,7 +179,12 @@ export default function AgendaPage() {
     }
   };
 
-  const handleSetLunchBreak = async (time: string | null) => {
+  const handleSetLunchBreak = async (
+    time: string | null,
+    scope: "default" | "date" = lunchBreakScope
+  ) => {
+    const formattedDate = selectedDate.split("-").reverse().join("/");
+    setIsSavingLunch(true);
     try {
       const res = await fetch('/api/barbers', {
         method: 'PATCH',
@@ -166,14 +192,36 @@ export default function AgendaPage() {
         body: JSON.stringify({ 
           barberId: "barbeiro-lucas", 
           date: selectedDate, 
-          lunchBreakTime: time 
+          lunchBreakTime: time,
+          lunchBreakScope: scope,
         })
       });
       if (res.ok) {
-        setLunchBreak(time);
+        const data = await res.json();
+        setLunchBreak(data.lunchBreakTime || null);
+        setDefaultLunchBreak(data.defaultLunchBreakTime || null);
+        setIsLunchBreakFixed(Boolean(data.isLunchBreakFixed));
+        setHasLunchDateOverride(Boolean(data.hasLunchDateOverride));
+        setLunchBreakScope(scope);
+
+        if (scope === "default") {
+          setToastMessage(
+            time
+              ? `Pausa para almoço FIXA ativada (${time}) para TODOS OS DIAS e salva no banco.`
+              : `Pausa para almoço fixa removida para todos os dias.`
+          );
+        } else {
+          setToastMessage(
+            time
+              ? `Pausa para almoço (${time}) aplicada apenas em ${formattedDate}.`
+              : `Pausa removida apenas em ${formattedDate} (padrão dos demais dias mantido).`
+          );
+        }
       }
     } catch (e) {
       console.error(e);
+    } finally {
+      setIsSavingLunch(false);
     }
   };
 
@@ -370,6 +418,14 @@ export default function AgendaPage() {
   return (
     <div className="max-w-6xl mx-auto space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700 pb-12">
       
+      {/* ━━━ FEEDBACK VISUAL DE PERSISTÊNCIA ━━━ */}
+      {toastMessage && (
+        <div className="fixed bottom-20 right-4 z-50 md:bottom-6 md:right-6 bg-[#0B0E14]/95 border border-[#DFBA73]/50 text-[#F5D799] px-4 py-3 rounded-2xl shadow-2xl backdrop-blur-xl text-xs font-mono flex items-center gap-2.5 animate-in fade-in slide-in-from-bottom-4">
+          <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
+          <span>{toastMessage}</span>
+        </div>
+      )}
+
       {/* ━━━ BARRA DE CONTROLE DA AGENDA ━━━ */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 pb-6 border-b border-white/10">
         <div>
@@ -427,7 +483,12 @@ export default function AgendaPage() {
               <span className={`w-2.5 h-2.5 rounded-full ${isOwnerAvailable ? "bg-emerald-400 animate-pulse" : "bg-gray-500"}`} />
               {lunchBreak && (
                 <span className="text-[10px] font-bold px-2.5 py-0.5 rounded-full font-mono bg-amber-500/20 text-amber-300 border border-amber-500/40">
-                  🍽️ Almoço às {lunchBreak} (travado)
+                  🍽️ Almoço {isLunchBreakFixed ? "Fixo" : "neste dia"}: {lunchBreak} (travado)
+                </span>
+              )}
+              {!lunchBreak && hasLunchDateOverride && defaultLunchBreak && (
+                <span className="text-[10px] font-bold px-2.5 py-0.5 rounded-full font-mono bg-white/10 text-gray-300 border border-white/20">
+                  Exceção: Sem almoço hoje (Fixo: {defaultLunchBreak})
                 </span>
               )}
             </div>
@@ -443,25 +504,17 @@ export default function AgendaPage() {
         </div>
 
         <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 w-full sm:w-auto">
-          {/* Controle Pausa para Almoço nesta data */}
-          <div className="flex items-center gap-2 bg-white/5 border border-white/10 rounded-xl px-3 py-2">
-            <span className="text-xs">🍽️</span>
-            <span className="text-[10px] text-gray-400 font-mono uppercase tracking-wider whitespace-nowrap">Almoço:</span>
-            <select
-              value={lunchBreak || ""}
-              onChange={(e) => handleSetLunchBreak(e.target.value || null)}
-              className="bg-transparent text-white text-xs font-mono outline-none cursor-pointer"
-            >
-              <option value="" className="bg-[#080A0E] text-white">Sem pausa</option>
-              <option value="11:00" className="bg-[#080A0E] text-white">11:00 às 12:00</option>
-              <option value="12:00" className="bg-[#080A0E] text-white">12:00 às 13:00</option>
-              <option value="13:00" className="bg-[#080A0E] text-white">13:00 às 14:00</option>
-              <option value="14:00" className="bg-[#080A0E] text-white">14:00 às 15:00</option>
-              <option value="15:00" className="bg-[#080A0E] text-white">15:00 às 16:00</option>
-              <option value="12:00-14:00" className="bg-[#080A0E] text-white">12:00 às 14:00 (2h)</option>
-              <option value="13:00-15:00" className="bg-[#080A0E] text-white">13:00 às 15:00 (2h)</option>
-            </select>
-          </div>
+          {/* Controle Pausa para Almoço (Fixo Diário ou Só na Data) */}
+          <LunchBreakControl
+            selectedDate={selectedDate}
+            lunchBreak={lunchBreak}
+            defaultLunchBreak={defaultLunchBreak}
+            hasDateOverride={hasLunchDateOverride}
+            scope={lunchBreakScope}
+            saving={isSavingLunch}
+            onScopeChange={setLunchBreakScope}
+            onSelectTime={handleSetLunchBreak}
+          />
 
           <button
             onClick={toggleOwnerAvailability}
@@ -489,15 +542,21 @@ export default function AgendaPage() {
       </div>
       </div>
 
-      {/* ━━━ ALERTA DE DOMINGO OU FERIADO SELECIONADO ━━━ */}
-      {currentDayStatus.isClosed && (
+      {/* ━━━ ALERTA DE DOMINGO OU STUDIO FECHADO NA DATA SELECIONADA ━━━ */}
+      {(currentDayStatus.isClosed || !isOwnerAvailable) && (
         <div className="p-4 bg-red-500/10 border border-red-500/30 rounded-2xl flex items-start gap-3">
           <span className="text-2xl">⚠️</span>
           <div>
             <h4 className="text-sm font-bold text-red-200 uppercase tracking-wider">
-              {currentDayStatus.isSunday ? "Studio Fechado aos Domingos" : "Studio Fechado no Feriado"}
+              {currentDayStatus.isSunday
+                ? "Studio Fechado aos Domingos"
+                : "Studio Fechado nesta Data"}
             </h4>
-            <p className="text-xs text-red-300 mt-0.5">{currentDayStatus.reason}</p>
+            <p className="text-xs text-red-300 mt-0.5">
+              {currentDayStatus.isClosed
+                ? currentDayStatus.reason
+                : "O estúdio está marcado como fechado nesta data por Lucas Augusto."}
+            </p>
             <p className="text-[11px] text-gray-400 mt-1">
               Clientes que acessarem o site nesta data verão o aviso oficial de fechamento.
             </p>

@@ -6,7 +6,7 @@ import { OFFICIAL_SERVICES } from '@/lib/services';
 import { addStoredAppointment, getAllStoredAppointments } from '@/lib/appointments-store';
 import { upsertStoredUser } from '@/lib/users-store';
 import { getBrazilNow, getBrazilDateAndTimeString, parseBrazilDateTime } from '@/lib/timezone';
-import { checkDayStatus } from '@/lib/holidays';
+import { checkDayStatusDB, getDayScheduleDB } from '@/lib/studio-schedule';
 import { isBarberAvailable } from '@/lib/barber-availability';
 import { sendAppointmentConfirmationEmail, sendNewBookingNotificationToBarber } from '@/lib/resend';
 
@@ -44,22 +44,38 @@ export async function POST(req: Request) {
     const appointmentDate = parseBrazilDateTime(date);
 
     if (!isWalkIn) {
-      // 2.1 Validação de Domingo e Feriados (Cacoal - RO + Nacionais)
-      const dayCheck = checkDayStatus(date);
+      const requestedBrazil = getBrazilDateAndTimeString(appointmentDate);
+
+      // 2.1 Validação de Domingo e Studio Fechado no Banco PostgreSQL
+      const dayCheck = await checkDayStatusDB(requestedBrazil.date);
       if (dayCheck.isClosed) {
         return NextResponse.json({ error: dayCheck.reason }, { status: 400 });
       }
 
-      // 2.2 Validação de Escala Flexível do Barbeiro
-      if (!isBarberAvailable(assignedBarber.id)) {
+      // 2.2 Validação de Escala Flexível, Saída Antecipada e Pausa para Almoço no Banco PostgreSQL
+      if (!isBarberAvailable(assignedBarber.id, requestedBrazil.date)) {
         return NextResponse.json(
-          { error: "Este profissional não está disponível para agendamentos hoje (escala flexível)." },
+          { error: "Este profissional não está disponível para agendamentos nesta data." },
+          { status: 400 }
+        );
+      }
+
+      const daySchedule = await getDayScheduleDB(requestedBrazil.date);
+      if (daySchedule.earlyClosingTime && requestedBrazil.time > daySchedule.earlyClosingTime) {
+        return NextResponse.json(
+          { error: `O estúdio encerrará o expediente às ${daySchedule.earlyClosingTime} nesta data.` },
+          { status: 400 }
+        );
+      }
+
+      if (daySchedule.lunchBreakSlots.includes(requestedBrazil.time)) {
+        return NextResponse.json(
+          { error: `O horário das ${requestedBrazil.time} está reservado para pausa de almoço.` },
           { status: 400 }
         );
       }
 
       const brazilNow = getBrazilNow();
-      const requestedBrazil = getBrazilDateAndTimeString(appointmentDate);
 
       const isPast =
         requestedBrazil.date < brazilNow.date ||

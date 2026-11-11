@@ -14,6 +14,7 @@ import { useSession } from "next-auth/react";
 import { BARBERS, BarberData } from "@/lib/barbers";
 import { OFFICIAL_SERVICES, ServiceItem } from "@/lib/services";
 import { getDisplayTime } from "@/lib/timezone";
+import { LunchBreakControl } from "@/components/LunchBreakControl";
 
 export default function DashboardPage() {
   const { data: session } = useSession();
@@ -58,10 +59,15 @@ export default function DashboardPage() {
     return `${year}-${month}-${day}`;
   });
 
-  // Disponibilidade de Lucas Augusto no Site (por data específica)
+  // Disponibilidade de Lucas Augusto no Site (persistida no Supabase PostgreSQL)
   const [isOwnerAvailable, setIsOwnerAvailable] = useState(true);
   const [earlyClosing, setEarlyClosing] = useState<string | null>(null);
   const [lunchBreak, setLunchBreak] = useState<string | null>(null);
+  const [defaultLunchBreak, setDefaultLunchBreak] = useState<string | null>(null);
+  const [isLunchBreakFixed, setIsLunchBreakFixed] = useState<boolean>(false);
+  const [hasLunchDateOverride, setHasLunchDateOverride] = useState<boolean>(false);
+  const [lunchBreakScope, setLunchBreakScope] = useState<"default" | "date">("default");
+  const [isSavingLunch, setIsSavingLunch] = useState(false);
   const [isTogglingOwner, setIsTogglingOwner] = useState(false);
 
   // Modal de Cancelamento por Imprevisto com WhatsApp
@@ -73,7 +79,7 @@ export default function DashboardPage() {
 
   // Carrega status da disponibilidade no site para a data selecionada
   useEffect(() => {
-    fetch(`/api/barbers?date=${selectedDate}`)
+    fetch(`/api/barbers?date=${selectedDate}&t=${Date.now()}`, { cache: "no-store" })
       .then((res) => res.json())
       .then((data) => {
         const list = Array.isArray(data) ? data : (data?.barbers || []);
@@ -82,6 +88,10 @@ export default function DashboardPage() {
           setIsOwnerAvailable(owner.isAvailable !== false);
           setEarlyClosing(owner.earlyClosingTime || null);
           setLunchBreak(owner.lunchBreakTime || null);
+          setDefaultLunchBreak(owner.defaultLunchBreakTime || null);
+          setIsLunchBreakFixed(Boolean(owner.isLunchBreakFixed));
+          setHasLunchDateOverride(Boolean(owner.hasLunchDateOverride));
+          setLunchBreakScope(owner.hasLunchDateOverride ? "date" : "default");
         }
       })
       .catch(() => {});
@@ -137,26 +147,49 @@ export default function DashboardPage() {
     }
   };
 
-  const handleSetLunchBreak = async (time: string | null) => {
+  const handleSetLunchBreak = async (
+    time: string | null,
+    scope: "default" | "date" = lunchBreakScope
+  ) => {
     const formattedDate = selectedDate.split("-").reverse().join("/");
+    setIsSavingLunch(true);
     try {
       const res = await fetch('/api/barbers', {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ 
-          barberId: "barbeiro-lucas", 
-          date: selectedDate, 
-          lunchBreakTime: time 
+        body: JSON.stringify({
+          barberId: "barbeiro-lucas",
+          date: selectedDate,
+          lunchBreakTime: time,
+          lunchBreakScope: scope,
         })
       });
       if (res.ok) {
-        setLunchBreak(time);
-        setToastMessage(time 
-          ? `Pausa para almoço travada às ${time} em ${formattedDate}. Horário bloqueado no site.`
-          : `Pausa para almoço removida em ${formattedDate}. Horário liberado para agendamentos.`);
+        const data = await res.json();
+        setLunchBreak(data.lunchBreakTime || null);
+        setDefaultLunchBreak(data.defaultLunchBreakTime || null);
+        setIsLunchBreakFixed(Boolean(data.isLunchBreakFixed));
+        setHasLunchDateOverride(Boolean(data.hasLunchDateOverride));
+        setLunchBreakScope(scope);
+
+        if (scope === "default") {
+          setToastMessage(
+            time
+              ? `Pausa para almoço FIXA ativada (${time}) para TODOS OS DIAS e salva no banco.`
+              : `Pausa para almoço fixa removida para todos os dias.`
+          );
+        } else {
+          setToastMessage(
+            time
+              ? `Pausa para almoço (${time}) aplicada apenas em ${formattedDate}.`
+              : `Pausa removida apenas em ${formattedDate} (padrão dos demais dias mantido).`
+          );
+        }
       }
     } catch (e) {
       console.error(e);
+    } finally {
+      setIsSavingLunch(false);
     }
   };
 
@@ -409,7 +442,12 @@ export default function DashboardPage() {
               )}
               {lunchBreak && (
                 <span className="text-[10px] font-bold px-2.5 py-0.5 rounded-full font-mono bg-amber-500/20 text-amber-300 border border-amber-500/40">
-                  🍽️ Almoço às {lunchBreak} (travado)
+                  🍽️ Almoço {isLunchBreakFixed ? "Fixo" : "neste dia"}: {lunchBreak} (travado)
+                </span>
+              )}
+              {!lunchBreak && hasLunchDateOverride && defaultLunchBreak && (
+                <span className="text-[10px] font-bold px-2.5 py-0.5 rounded-full font-mono bg-white/10 text-gray-300 border border-white/20">
+                  Exceção: Sem almoço hoje (Fixo: {defaultLunchBreak})
                 </span>
               )}
             </div>
@@ -425,25 +463,17 @@ export default function DashboardPage() {
         </div>
 
         <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 w-full lg:w-auto">
-          {/* Controle Pausa para Almoço nesta data */}
-          <div className="flex items-center gap-2 bg-white/5 border border-white/10 rounded-2xl px-3 py-2">
-            <span className="text-xs">🍽️</span>
-            <span className="text-[10px] text-gray-400 font-mono uppercase tracking-wider whitespace-nowrap">Almoço:</span>
-            <select
-              value={lunchBreak || ""}
-              onChange={(e) => handleSetLunchBreak(e.target.value || null)}
-              className="bg-transparent text-white text-xs font-mono outline-none cursor-pointer"
-            >
-              <option value="" className="bg-[#080A0E] text-white">Sem pausa</option>
-              <option value="11:00" className="bg-[#080A0E] text-white">11:00 às 12:00</option>
-              <option value="12:00" className="bg-[#080A0E] text-white">12:00 às 13:00</option>
-              <option value="13:00" className="bg-[#080A0E] text-white">13:00 às 14:00</option>
-              <option value="14:00" className="bg-[#080A0E] text-white">14:00 às 15:00</option>
-              <option value="15:00" className="bg-[#080A0E] text-white">15:00 às 16:00</option>
-              <option value="12:00-14:00" className="bg-[#080A0E] text-white">12:00 às 14:00 (2h)</option>
-              <option value="13:00-15:00" className="bg-[#080A0E] text-white">13:00 às 15:00 (2h)</option>
-            </select>
-          </div>
+          {/* Controle Pausa para Almoço (Fixo Diário ou Só na Data) */}
+          <LunchBreakControl
+            selectedDate={selectedDate}
+            lunchBreak={lunchBreak}
+            defaultLunchBreak={defaultLunchBreak}
+            hasDateOverride={hasLunchDateOverride}
+            scope={lunchBreakScope}
+            saving={isSavingLunch}
+            onScopeChange={setLunchBreakScope}
+            onSelectTime={handleSetLunchBreak}
+          />
 
           {/* Controle Sair Mais Cedo nesta data */}
           <div className="flex items-center gap-2 bg-white/5 border border-white/10 rounded-2xl px-3 py-2">

@@ -4,7 +4,16 @@ import { BARBERS } from "@/lib/barbers";
 import { getAppointmentsForDate } from "@/lib/appointments-store";
 import { getBrazilNow, formatAptTimeToHHMM } from "@/lib/timezone";
 import { checkDayStatus } from "@/lib/holidays";
-import { isDateClosed, getEarlyClosingTime, getLunchBreakTime, getLunchBreakSlots } from "@/lib/barber-availability";
+import { getDayScheduleDB } from "@/lib/studio-schedule";
+
+export const dynamic = "force-dynamic";
+
+function jsonNoStore(body: unknown, status = 200) {
+  return NextResponse.json(body, {
+    status,
+    headers: { "Cache-Control": "no-store, no-cache, must-revalidate" },
+  });
+}
 
 // Horários Oficiais do LAS Barber Studio:
 // - Segunda a Sexta: 08:00 às 20:00
@@ -52,15 +61,15 @@ export async function GET(req: Request) {
 
     const cleanDateStr = dateParam.substring(0, 10);
 
-    // 1. Verificação se o dia está fechado (Domingo ou Fechado manualmente para esta data)
+    // 1. Verificação de Domingo e data no passado
     const dayStatus = checkDayStatus(cleanDateStr);
-    if (dayStatus.isClosed) {
-      return NextResponse.json({
+    if (dayStatus.isSunday) {
+      return jsonNoStore({
         availableTimes: [],
         isClosed: true,
-        isSunday: dayStatus.isSunday,
-        isHoliday: dayStatus.isHoliday,
-        isStudioClosed: dayStatus.isStudioClosed,
+        isSunday: true,
+        isHoliday: false,
+        isStudioClosed: false,
         reason: dayStatus.reason,
       });
     }
@@ -69,7 +78,20 @@ export async function GET(req: Request) {
 
     // 2. Se a data for no passado (antes de hoje no Brasil), não há horários livres
     if (cleanDateStr < brazilNow.date) {
-      return NextResponse.json({ availableTimes: [] });
+      return jsonNoStore({ availableTimes: [] });
+    }
+
+    // 2.1 Busca configuração oficial da escala e pausa para almoço no PostgreSQL
+    const schedule = await getDayScheduleDB(cleanDateStr);
+    if (schedule.isClosed) {
+      return jsonNoStore({
+        availableTimes: [],
+        isClosed: true,
+        isSunday: false,
+        isHoliday: false,
+        isStudioClosed: true,
+        reason: "O estúdio estará fechado nesta data pelo Master Barber Lucas Augusto.",
+      });
     }
 
     // 3. Determina os horários base de acordo com o dia da semana
@@ -81,14 +103,14 @@ export async function GET(req: Request) {
     let baseHours = dayOfWeek === 6 ? [...SATURDAY_HOURS] : [...WEEKDAY_HOURS];
 
     // 4. Verificação de Encerramento Antecipado (Caso o barbeiro precise sair mais cedo neste dia)
-    const earlyClosingTime = getEarlyClosingTime(cleanDateStr);
+    const earlyClosingTime = schedule.earlyClosingTime;
     if (earlyClosingTime) {
       baseHours = baseHours.filter((time) => time <= earlyClosingTime);
     }
 
-    // 4.1 Verificação de Pausa para Almoço do Barbeiro (Trava os horários de almoço selecionados)
-    const lunchBreakTime = getLunchBreakTime(cleanDateStr);
-    const lunchBreakSlots = getLunchBreakSlots(cleanDateStr);
+    // 4.1 Verificação de Pausa para Almoço do Barbeiro (Fixa diária ou específica desta data)
+    const lunchBreakTime = schedule.lunchBreakTime;
+    const lunchBreakSlots = schedule.lunchBreakSlots;
     if (lunchBreakSlots.length > 0) {
       baseHours = baseHours.filter((time) => !lunchBreakSlots.includes(time));
     }
@@ -126,7 +148,7 @@ export async function GET(req: Request) {
 
       const availableTimes = baseHours.filter((time) => !bookedTimes.includes(time));
 
-      return NextResponse.json({
+      return jsonNoStore({
         availableTimes,
         isSaturday: dayOfWeek === 6,
         earlyClosingTime: earlyClosingTime || null,
@@ -142,7 +164,7 @@ export async function GET(req: Request) {
 
       const availableTimes = baseHours.filter((time) => !bookedTimes.includes(time));
 
-      return NextResponse.json({
+      return jsonNoStore({
         availableTimes,
         isSaturday: dayOfWeek === 6,
         earlyClosingTime: earlyClosingTime || null,
