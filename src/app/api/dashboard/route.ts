@@ -13,6 +13,8 @@ import {
 } from '@/lib/appointments-store';
 import { parseBrazilDateTime } from '@/lib/timezone';
 
+export const dynamic = 'force-dynamic';
+
 export async function GET(req: Request) {
   try {
     const session = await getServerSession(authOptions);
@@ -111,7 +113,6 @@ export async function GET(req: Request) {
     // 2. FLUXO DO DONO / ADMINISTRADOR (LUCAS AUGUSTO TRABALHA SOZINHO - 100% STUDIO)
     const startOfDay = new Date(`${dateParam}T00:00:00-03:00`);
     const endOfDay = new Date(`${dateParam}T23:59:59-03:00`);
-    const queryStart = new Date(`${dateParam}T00:00:00Z`);
 
     let allDayAppointments: any[] = [];
     let upcomingAppointments: any[] = [];
@@ -119,7 +120,7 @@ export async function GET(req: Request) {
     try {
       const dbAppointments = await prisma.appointment.findMany({
         where: {
-          date: { gte: queryStart, lte: endOfDay },
+          date: { gte: startOfDay, lte: endOfDay },
         },
         include: { service: true, user: true, barber: true },
         orderBy: { date: "asc" },

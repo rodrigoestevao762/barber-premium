@@ -146,38 +146,26 @@ export async function POST(req: Request) {
         });
       } catch (_) {}
 
-      // 4.2 Sincroniza Serviço
-      let finalServiceId: string = serviceId;
+      // 4.2 Sincroniza Serviço (sempre garante nome/preço/duração oficiais)
+      let finalServiceId: string = matchedService.id;
       try {
-        const existingService = await prisma.service.findFirst({
-          where: {
-            OR: [
-              { id: serviceId },
-              { name: { equals: matchedService.name, mode: "insensitive" } },
-            ],
+        const newService = await prisma.service.upsert({
+          where: { id: matchedService.id },
+          update: {
+            name: matchedService.name,
+            description: matchedService.description,
+            price: matchedService.price,
+            duration: matchedService.duration,
+          },
+          create: {
+            id: matchedService.id,
+            name: matchedService.name,
+            description: matchedService.description,
+            price: matchedService.price,
+            duration: matchedService.duration,
           },
         });
-
-        if (existingService) {
-          finalServiceId = existingService.id;
-        } else {
-          const newService = await prisma.service.upsert({
-            where: { id: matchedService.id },
-            update: {
-              name: matchedService.name,
-              price: matchedService.price,
-              duration: matchedService.duration,
-            },
-            create: {
-              id: matchedService.id,
-              name: matchedService.name,
-              description: matchedService.description,
-              price: matchedService.price,
-              duration: matchedService.duration,
-            },
-          });
-          finalServiceId = newService.id;
-        }
+        finalServiceId = newService.id;
       } catch (_) {}
 
       // 4.3 Cria/Atualiza Usuário no Banco

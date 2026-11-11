@@ -16,8 +16,8 @@ export default function SettingsPage() {
           </div>
           <div className="space-y-4">
              <h3 className="text-xl font-medium text-white flex items-center gap-2"><Bell className="w-5 h-5 text-amber-400"/> Notificações e Horários</h3>
-             <p className="text-gray-300 text-sm">Horário oficial: Segunda a Sábado das 08:00 às 20:00. Domingos e feriados sob agendamento VIP antecipado.</p>
-             <button className="px-6 py-3 bg-white/10 text-white rounded-lg opacity-50 cursor-not-allowed font-mono text-xs uppercase tracking-wider">08:00 às 20:00 Configurado</button>
+             <p className="text-gray-300 text-sm">Horário oficial: Segunda a Sábado das 08:30 às 20:00. Domingos e feriados sob agendamento VIP antecipado.</p>
+             <button className="px-6 py-3 bg-white/10 text-white rounded-lg opacity-50 cursor-not-allowed font-mono text-xs uppercase tracking-wider">08:30 às 20:00 Configurado</button>
           </div>
         </div>
       </div>

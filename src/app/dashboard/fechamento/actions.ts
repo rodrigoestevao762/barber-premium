@@ -12,9 +12,8 @@ import {
 export async function getFechamentoData(dateStr?: string) {
   try {
     const targetDateStr = dateStr || getLocalDateString();
-    const targetDate = new Date(targetDateStr + "T12:00:00");
-    const start = new Date(targetDate.getFullYear(), targetDate.getMonth(), targetDate.getDate());
-    const end = new Date(targetDate.getFullYear(), targetDate.getMonth(), targetDate.getDate(), 23, 59, 59, 999);
+    const start = new Date(`${targetDateStr}T00:00:00-03:00`);
+    const end = new Date(`${targetDateStr}T23:59:59.999-03:00`);
 
     let appointments: any[] = [];
     let closings: any[] = [];
@@ -134,8 +133,7 @@ export async function closeCashRegister(data: { totalRevenue: number, barberReve
     const parsedRevenues = JSON.parse(data.barberRevenues);
     const totalCommissions = parsedRevenues.reduce((acc: number, b: any) => acc + b.commission, 0);
 
-    const targetDate = new Date(data.dateStr + "T12:00:00");
-    const closingDate = new Date(targetDate.getFullYear(), targetDate.getMonth(), targetDate.getDate(), 23, 59, 59);
+    const closingDate = new Date(`${data.dateStr}T23:59:59-03:00`);
 
     try {
       const closing = await prisma.cashClosing.create({

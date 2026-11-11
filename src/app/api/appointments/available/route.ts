@@ -16,11 +16,11 @@ function jsonNoStore(body: unknown, status = 200) {
 }
 
 // Horários Oficiais do LAS Barber Studio:
-// - Segunda a Sexta: 08:00 às 20:00
-// - Sábado: 08:00 às 18:00
+// - Segunda a Sexta: 08:30 às 20:00
+// - Sábado: 08:30 às 18:00
 // - Domingo: Fechado
 const WEEKDAY_HOURS = [
-  "08:00",
+  "08:30",
   "09:00",
   "10:00",
   "11:00",
@@ -36,7 +36,7 @@ const WEEKDAY_HOURS = [
 ];
 
 const SATURDAY_HOURS = [
-  "08:00",
+  "08:30",
   "09:00",
   "10:00",
   "11:00",

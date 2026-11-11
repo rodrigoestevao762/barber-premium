@@ -52,7 +52,7 @@ export default function FinanceiroPage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const [isWalkInModalOpen, setIsWalkInModalOpen] = useState(false);
-  const [selectedServiceId, setSelectedServiceId] = useState<string>("corte");
+  const [selectedServiceId, setSelectedServiceId] = useState<string>("corte-cabelo");
   const [paymentMethod, setPaymentMethod] = useState<string>("PIX");
   const [toastMessage, setToastMessage] = useState<string | null>(null);
 
@@ -88,16 +88,16 @@ export default function FinanceiroPage() {
       let apiGross = 0;
 
       try {
-        const resDash = await fetch(`/api/dashboard?date=${dateStr}&barberId=all`);
+        const resDash = await fetch(`/api/dashboard?date=${dateStr}&barberId=all`, { cache: "no-store" });
         if (resDash.ok) {
           const dashData = await resDash.json();
-          if (dashData.breakdown && dashData.breakdown.length > 0) {
-            const solo = dashData.breakdown[0];
+          if (dashData.barberBreakdown && dashData.barberBreakdown.length > 0) {
+            const solo = dashData.barberBreakdown[0];
             apiCuts = solo.completedApts || 0;
             apiGross = solo.revenue || 0;
           } else if (dashData.revenue !== undefined) {
             apiGross = dashData.revenue || 0;
-            apiCuts = dashData.completedApts || 0;
+            apiCuts = dashData.completedCount ?? dashData.completedApts ?? 0;
           }
         }
       } catch (err) {

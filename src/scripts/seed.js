@@ -4,15 +4,17 @@ const bcrypt = require('bcryptjs');
 const prisma = new PrismaClient();
 
 const OFFICIAL_SERVICES = [
-  { id: "corte-social", name: "Corte Tradicional / Social", description: "Alinhamento com tesoura e máquina, acabamento refinado com navalhete e finalização com pomada premium.", price: 45, duration: 30 },
-  { id: "degrade-navalhado", name: "Degradê Navalhado (Fade)", description: "Transição perfeita do zero à altura desejada, raspagem navalhada com lâmina descartável e hidratação de couro cabeludo.", price: 50, duration: 40 },
-  { id: "barba-terapia", name: "Barba Clássica & Barboterapia", description: "Toalha quente com óleos essenciais, massagem facial, modelagem com navalhete e pós-barba refrescante.", price: 40, duration: 30 },
-  { id: "combo-corte-barba", name: "Combo Completo: Corte & Barba", description: "Experiência completa LAS: Corte personalizado + Barboterapia completa com toalha quente e finalização VIP.", price: 80, duration: 60 },
-  { id: "acabamento-pezinho", name: "Pezinho & Acabamento", description: "Alinhamento de contornos do cabelo e nuca com navalhete e loção calmante.", price: 20, duration: 15 },
-  { id: "sobrancelha-navalha", name: "Design de Sobrancelha na Navalha", description: "Alinhamento geométrico e limpeza dos pelos com navalhete esterilizado.", price: 15, duration: 15 },
-  { id: "pigmentacao-barba", name: "Pigmentação de Barba", description: "Correção de falhas e realce de densidade dos fios com tinta antialérgica especial.", price: 35, duration: 25 },
-  { id: "platinado-nevou", name: "Nevou / Platinado Global", description: "Descoloração profissional com protetor térmico capilar, matização sem amarelados e hidratação profunda.", price: 130, duration: 90 },
-  { id: "selagem-alisamento", name: "Selagem & Redução de Volume", description: "Tratamento para alinhamento dos fios, brilho intenso e redução de frizz com produtos nobres.", price: 90, duration: 60 }
+  { id: "combo-corte-barba-sobrancelha", name: "Combo Completo: Corte + Barba + Sobrancelha", description: "Alinhamento estético completo com corte refinado, barba desenhada na navalha e sobrancelha harmonizada.", price: 100, duration: 75 },
+  { id: "combo-corte-barba", name: "Corte + Barba", description: "Corte personalizado aliado à barba modelada com acabamento na navalha e hidratação.", price: 95, duration: 65 },
+  { id: "combo-corte-sobrancelha", name: "Corte + Sobrancelha", description: "Corte de precisão combinado ao alinhamento discreto de sobrancelha na navalha.", price: 65, duration: 45 },
+  { id: "corte-cabelo", name: "Corte de Cabelo", description: "Corte personalizado com máquina e tesoura, acabamento na navalha e finalização premium.", price: 45, duration: 35 },
+  { id: "corte-tesoura", name: "Corte em Tesoura", description: "Execução artesanal em tesoura para caimento natural, textura e precisão.", price: 50, duration: 45 },
+  { id: "corte-infantil", name: "Corte Infantil", description: "Atendimento cuidadoso e estilo sob medida para o público infantil.", price: 45, duration: 30 },
+  { id: "barba", name: "Barba", description: "Modelagem, alinhamento na navalha e hidratação para a barba.", price: 45, duration: 35 },
+  { id: "pigmentacao-barba", name: "Pigmentação de Barba", description: "Preenchimento e realce natural dos contornos e densidade da barba.", price: 30, duration: 25 },
+  { id: "sobrancelha", name: "Sobrancelha", description: "Limpeza e alinhamento masculino na navalha mantendo a naturalidade.", price: 20, duration: 15 },
+  { id: "depilacao-nariz-orelha", name: "Depilação de Nariz e Orelha", description: "Remoção higiênica e confortável dos excessos nas regiões do nariz e orelha.", price: 20, duration: 15 },
+  { id: "hidratacao", name: "Hidratação", description: "Tratamento revitalizante para maciez, brilho e saúde dos fios.", price: 30, duration: 25 }
 ];
 
 async function seed() {

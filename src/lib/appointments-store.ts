@@ -122,12 +122,10 @@ export function addStoredAppointment(aptData: Partial<StoredAppointment>): Store
 
   const barber = BARBERS.find((b) => b.id === aptData.barberId) || BARBERS[0];
 
-  const service = OFFICIAL_SERVICES.find((s) => s.id === aptData.service?.id) || {
-    id: "corte",
-    name: "Corte",
-    price: 45,
-    duration: 35,
-  };
+  const service =
+    OFFICIAL_SERVICES.find((s) => s.id === aptData.service?.id) ||
+    OFFICIAL_SERVICES.find((s) => s.id === "corte-cabelo") ||
+    OFFICIAL_SERVICES[0];
 
   const newApt: StoredAppointment = {
     id: aptData.id || `apt-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,

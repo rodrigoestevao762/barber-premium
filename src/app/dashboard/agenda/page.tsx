@@ -230,7 +230,7 @@ export default function AgendaPage() {
     setLoading(true);
     try {
       const barberParam = (isAdmin && selectedBarberFilter !== "all") ? `&barberId=${selectedBarberFilter}` : '';
-      const res = await fetch(`/api/dashboard?date=${selectedDate}${barberParam}`);
+      const res = await fetch(`/api/dashboard?date=${selectedDate}${barberParam}`, { cache: "no-store" });
       if (res.ok) {
         const data = await res.json();
         setAppointments(data.appointments || []);

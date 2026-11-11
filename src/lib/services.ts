@@ -20,7 +20,7 @@ export const OFFICIAL_SERVICES: ServiceItem[] = [
   {
     id: "combo-corte-barba-sobrancelha",
     index: "01",
-    name: "Corte + Barba + Sobrancelha",
+    name: "Combo Completo: Corte + Barba + Sobrancelha",
     category: "combo",
     categoryLabel: "Rituais Exclusivos",
     description: "Alinhamento estético de impacto. Transforma e define seus traços com corte refinado, barba desenhada na navalha e sobrancelha harmonizada com discrição masculina.",

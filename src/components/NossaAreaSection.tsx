@@ -54,8 +54,8 @@ const GALLERY_PHOTOS = [
 ];
 
 const HORARIOS = [
-  { dia: "Segunda – Sexta", hora: "08:00 – 20:00" },
-  { dia: "Sábado", hora: "08:00 – 18:00" },
+  { dia: "Segunda – Sexta", hora: "08:30 – 20:00" },
+  { dia: "Sábado", hora: "08:30 – 18:00" },
   { dia: "Domingo", hora: "Fechado" },
 ];
 
@@ -492,9 +492,9 @@ export default function NossaAreaSection() {
           <div className="flex items-center gap-3">
             <Clock className="w-4 h-4 text-[#DFBA73]" />
             <span className="text-sm font-light tracking-wide font-mono">
-              Seg – Sex: <span className="text-white font-medium">08:00 – 20:00</span>
+              Seg – Sex: <span className="text-white font-medium">08:30 – 20:00</span>
               <span className="mx-3 text-white/20">·</span>
-              Sáb: <span className="text-white font-medium">08:00 – 18:00</span>
+              Sáb: <span className="text-white font-medium">08:30 – 18:00</span>
             </span>
           </div>
 

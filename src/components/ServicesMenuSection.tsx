@@ -93,7 +93,7 @@ export default function ServicesMenuSection({ onSelectService }: ServicesMenuSec
             </div>
             <div className="flex items-center gap-2 px-3.5 py-2 rounded-xl bg-[#DFBA73]/15 border border-[#DFBA73]/40 text-[#F5D799] font-bold backdrop-blur-md shadow-md shadow-[#DFBA73]/10">
               <Clock className="w-3.5 h-3.5 shrink-0" />
-              <span>08:00 às 20:00 • Seg a Sáb</span>
+              <span>08:30 às 20:00 • Seg a Sáb</span>
             </div>
           </div>
         </div>
@@ -135,7 +135,7 @@ export default function ServicesMenuSection({ onSelectService }: ServicesMenuSec
                   <span>Experiência Suprema da Casa</span>
                 </div>
                 <h3 className="text-2xl sm:text-3xl md:text-4xl font-serif text-white font-normal leading-tight">
-                  Combo <span className="text-transparent bg-clip-text bg-gradient-to-r from-[#F5D799] via-[#DFBA73] to-[#B88B38] italic font-semibold">(Corte + Barba + Sobrancelha)</span>
+                  Combo Completo <span className="text-transparent bg-clip-text bg-gradient-to-r from-[#F5D799] via-[#DFBA73] to-[#B88B38] italic font-semibold">(Corte + Barba + Sobrancelha)</span>
                 </h3>
                 <p className="text-gray-300 text-sm sm:text-base font-light leading-relaxed">
                   O protocolo essencial de alinhamento masculino do LAS Studio. Desfrute de corte capilar de precisão sob medida, barba desenhada na toalha aquecida com navalha clássica e alinhamento de sobrancelha com total discrição.
