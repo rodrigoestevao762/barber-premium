@@ -580,12 +580,12 @@ export default function Home() {
         {/* Foto Oficial de Fundo Preenchendo Toda a Sessão com Posição Nobre */}
         <div className="absolute inset-0 w-full h-full overflow-hidden">
           <Image
-            src="/studio/cta-signature.jpg"
+            src="/studio/cta-signature-v2.jpg"
             alt="LAS Barber Studio - Estúdio Privativo Lucas Augusto"
             fill
             quality={95}
             priority
-            className="object-cover object-center md:object-[center_35%] scale-100"
+            className="object-cover object-center md:object-[center_45%] scale-100"
           />
           {/* Overlays Cinematográficos para Legibilidade e Atmosfera de Alto Padrão */}
           <div className="absolute inset-0 bg-black/45 pointer-events-none" />
