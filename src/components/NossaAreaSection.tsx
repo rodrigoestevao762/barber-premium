@@ -16,25 +16,25 @@ const GALLERY_PHOTOS = [
     col: "col-span-2 row-span-1",
   },
   {
-    src: "/studio/studio-bancada.jpg",
+    src: "/studio/espaco-bancada-v2.jpg",
     label: "Bancada de Precisão",
     desc: "Ferramentas profissionais esterilizadas e máxima ergonomia para o seu atendimento.",
     col: "col-span-1 row-span-1",
   },
   {
-    src: "/studio/cover-4.jpg",
+    src: "/studio/hero-new-2.jpg",
     label: "A Estação Privativa",
     desc: "Espelho cápsula iluminado e poltrona ergonômica de alta precisão.",
     col: "col-span-1 row-span-1",
   },
   {
-    src: "/studio/cover-5.jpg",
+    src: "/studio/espaco-ambiente-cenico-v2.jpg",
     label: "Ambiente Cênico",
     desc: "Linha profissional K'ENZZA e iluminação arquitetural acolhedora.",
     col: "col-span-1 row-span-1",
   },
   {
-    src: "/studio/cover-3.jpg",
+    src: "/studio/espaco-spa-barba-v2.jpg",
     label: "SPA da Barba",
     desc: "Toalha aquecida aromática, óleos essenciais e navalha clássica relaxante.",
     col: "col-span-1 row-span-1",
@@ -46,7 +46,7 @@ const GALLERY_PHOTOS = [
     col: "col-span-1 row-span-1",
   },
   {
-    src: "/studio/cover-1.jpg",
+    src: "/studio/espaco-estrutura-v2.jpg",
     label: "Estrutura Completa",
     desc: "Cosméticos nobres L'Occitane & K'ENZZA e máxima higiene.",
     col: "col-span-2 row-span-1",
