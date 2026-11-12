@@ -1,13 +1,24 @@
 "use client";
 
 import { motion, AnimatePresence } from "framer-motion";
-import { LayoutDashboard, Users, Calendar, Settings, LogOut, Bell, Wallet, Archive, Shield, Home } from "lucide-react";
+import { LayoutDashboard, Users, Calendar, Settings, LogOut, Bell, Wallet, Archive, Shield, Home, X } from "lucide-react";
 import Link from "next/link";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useId, useCallback, useRef } from "react";
 import { signOut, useSession } from "next-auth/react";
 import { useRouter, usePathname } from "next/navigation";
-import { getDisplayTime } from "@/lib/timezone";
+import { getDisplayTime, getBrazilDateAndTimeString } from "@/lib/timezone";
 import LogoLasBarber from "@/components/LogoLasBarber";
+
+function formatNotificationDate(dateInput?: string | Date): string {
+  if (!dateInput) return "";
+  try {
+    const { date } = getBrazilDateAndTimeString(dateInput);
+    const [, month, day] = date.split("-");
+    return day && month ? `${day}/${month}` : "";
+  } catch {
+    return "";
+  }
+}
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   const { data: session, status } = useSession();
@@ -15,7 +26,10 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const pathname = usePathname();
   const [isNotifOpen, setIsNotifOpen] = useState(false);
   const [notifications, setNotifications] = useState<any[]>([]);
+  const [isLoadingNotifs, setIsLoadingNotifs] = useState(false);
   const [greeting, setGreeting] = useState("BOM DIA");
+  const notifPanelId = useId();
+  const notifTriggerRef = useRef<HTMLButtonElement | null>(null);
 
   const userRole = (session?.user as any)?.role || "ADMIN";
   const isAdmin = userRole === "ADMIN";
@@ -40,20 +54,62 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     }
   }, []);
 
-  useEffect(() => {
-    const fetchNotifs = async () => {
-      try {
-        const res = await fetch("/api/appointments?limit=5");
-        const data = await res.json();
-        if (Array.isArray(data)) {
-          setNotifications(data);
+  const fetchNotifs = useCallback(async () => {
+    setIsLoadingNotifs(true);
+    try {
+      const res = await fetch("/api/appointments?limit=8", { cache: "no-store" });
+      if (!res.ok) return;
+      const data = await res.json();
+      if (Array.isArray(data)) {
+        setNotifications(data);
+      }
+    } catch (err) {
+      console.error("Falha ao buscar notificações:", err);
+    } finally {
+      setIsLoadingNotifs(false);
+    }
+  }, []);
+
+  const closeNotif = useCallback((restoreFocus = false) => {
+    setIsNotifOpen(false);
+    if (restoreFocus) {
+      requestAnimationFrame(() => notifTriggerRef.current?.focus());
+    }
+  }, []);
+
+  const toggleNotif = useCallback(
+    (e: React.MouseEvent<HTMLButtonElement>) => {
+      notifTriggerRef.current = e.currentTarget;
+      setIsNotifOpen((prev) => {
+        const next = !prev;
+        if (next) {
+          void fetchNotifs();
         }
-      } catch (err) {
-        console.error("Falha ao buscar notificações:", err);
+        return next;
+      });
+    },
+    [fetchNotifs]
+  );
+
+  useEffect(() => {
+    void fetchNotifs();
+  }, [fetchNotifs]);
+
+  useEffect(() => {
+    setIsNotifOpen(false);
+  }, [pathname]);
+
+  useEffect(() => {
+    if (!isNotifOpen) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        e.preventDefault();
+        closeNotif(true);
       }
     };
-    fetchNotifs();
-  }, []);
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [isNotifOpen, closeNotif]);
 
   const handleSignOut = async () => {
     try {
@@ -84,7 +140,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const userInitial = (session?.user?.name || "L")[0].toUpperCase();
 
   return (
-    <div className="min-h-screen bg-[#050608] text-white relative overflow-hidden font-sans selection:bg-[#DFBA73] selection:text-black">
+    <div className="min-h-screen bg-[#050608] text-white relative overflow-x-clip font-sans selection:bg-[#DFBA73] selection:text-black">
       
       {/* Background glow effects em tom dourado nobre */}
       <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] bg-[#DFBA73]/5 blur-[140px] rounded-full pointer-events-none" />
@@ -159,10 +215,13 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             <span>Site</span>
           </Link>
 
-          <button 
-            onClick={() => setIsNotifOpen(!isNotifOpen)} 
+          <button
+            type="button"
+            onClick={toggleNotif}
             className="p-2 bg-white/5 border border-white/10 rounded-full text-gray-300 hover:text-white transition-colors relative cursor-pointer"
             aria-label="Notificações"
+            aria-expanded={isNotifOpen}
+            aria-controls={notifPanelId}
           >
             <Bell className="w-4 h-4" />
             {notifications.length > 0 && (
@@ -251,58 +310,19 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             <span>Desconectar</span>
           </button>
 
-          <div className="relative">
-            <button 
-              onClick={() => setIsNotifOpen(!isNotifOpen)} 
-              className="p-3 bg-white/5 border border-white/10 rounded-full text-gray-300 hover:text-white transition-colors relative cursor-pointer"
-            >
-              <Bell className="w-5 h-5" />
-              {notifications.length > 0 && (
-                <span className="absolute top-2 right-2 w-2.5 h-2.5 rounded-full bg-[#DFBA73] animate-pulse" />
-              )}
-            </button>
-
-            <AnimatePresence>
-              {isNotifOpen && (
-                <>
-                  <div 
-                    className="fixed inset-0 z-40" 
-                    onClick={() => setIsNotifOpen(false)} 
-                  />
-                  <motion.div 
-                    initial={{ opacity: 0, scale: 0.95, y: 10 }}
-                    animate={{ opacity: 1, scale: 1, y: 0 }}
-                    exit={{ opacity: 0, scale: 0.95, y: 10 }}
-                    className="absolute right-0 top-full mt-3 w-80 max-w-[calc(100vw-2rem)] bg-[#080A0E] border border-[#DFBA73]/40 rounded-2xl p-4 shadow-2xl shadow-black/95 z-50 backdrop-blur-2xl ring-1 ring-white/10 font-sans"
-                  >
-                    <div className="flex items-center justify-between mb-3 pb-2 border-b border-white/10">
-                      <h4 className="text-sm font-serif text-white">Últimos Atendimentos</h4>
-                      <span className="text-[10px] text-[#DFBA73] font-mono font-medium">Recentes</span>
-                    </div>
-                    <div className="space-y-2 max-h-72 overflow-y-auto pr-1">
-                      {notifications.length === 0 ? (
-                        <p className="text-xs text-gray-400 text-center py-4">Sem notificações no momento.</p>
-                      ) : (
-                        notifications.map((n) => (
-                          <div key={n.id} className="text-xs p-2.5 rounded-xl bg-white/[0.03] border border-white/5 hover:border-[#DFBA73]/30 transition-colors">
-                            <div className="flex items-center justify-between">
-                              <p className="text-white font-medium">{n.user?.name || "Cliente"}</p>
-                              <span className="text-[10px] text-[#DFBA73] font-mono font-bold">
-                                {getDisplayTime(n.date)}
-                              </span>
-                            </div>
-                            <p className="text-gray-400 text-[11px] mt-0.5">
-                              {n.service?.name} {n.service?.price ? `• R$ ${Number(n.service.price).toFixed(2)}` : ""}
-                            </p>
-                          </div>
-                        ))
-                      )}
-                    </div>
-                  </motion.div>
-                </>
-              )}
-            </AnimatePresence>
-          </div>
+          <button
+            type="button"
+            onClick={toggleNotif}
+            className="p-3 bg-white/5 border border-white/10 rounded-full text-gray-300 hover:text-white transition-colors relative cursor-pointer"
+            aria-label="Notificações"
+            aria-expanded={isNotifOpen}
+            aria-controls={notifPanelId}
+          >
+            <Bell className="w-5 h-5" />
+            {notifications.length > 0 && (
+              <span className="absolute top-2 right-2 w-2.5 h-2.5 rounded-full bg-[#DFBA73] animate-pulse" />
+            )}
+          </button>
         </div>
       </header>
 
@@ -310,6 +330,90 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       <main className="md:pl-36 md:pr-12 px-4 pt-6 pb-24 md:pb-16 relative z-10">
         {children}
       </main>
+
+      {/* Shared Notifications Panel (Mobile & Desktop) */}
+      <AnimatePresence>
+        {isNotifOpen && (
+          <>
+            <div
+              className="fixed inset-0 z-[115] bg-black/60 backdrop-blur-[2px] md:bg-transparent md:backdrop-blur-none"
+              onClick={() => closeNotif(false)}
+              aria-hidden="true"
+            />
+            <motion.div
+              id={notifPanelId}
+              role="region"
+              aria-label="Últimos Atendimentos"
+              initial={{ opacity: 0, scale: 0.96, y: -8 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.96, y: -8 }}
+              transition={{ duration: 0.16, ease: "easeOut" }}
+              className="fixed left-3 right-3 sm:left-auto sm:right-6 md:right-12 top-[calc(env(safe-area-inset-top,0px)+4.75rem)] md:top-24 sm:w-96 max-h-[calc(100dvh-7rem)] flex flex-col bg-[#080A0E]/95 border border-[#DFBA73]/40 rounded-2xl p-4 shadow-2xl shadow-black/95 z-[120] backdrop-blur-2xl ring-1 ring-white/10 font-sans"
+            >
+              <div className="flex items-center justify-between gap-2 mb-3 pb-2 border-b border-white/10 shrink-0">
+                <h4 className="text-sm font-serif text-white">Últimos Atendimentos</h4>
+                <div className="flex items-center gap-2">
+                  <span className="text-[10px] text-[#DFBA73] font-mono font-medium">
+                    {isLoadingNotifs ? "Atualizando..." : "Recentes"}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => closeNotif(true)}
+                    aria-label="Fechar notificações"
+                    className="p-1.5 rounded-lg text-gray-400 hover:text-white hover:bg-white/10 transition-colors cursor-pointer"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
+                </div>
+              </div>
+
+              <div className="space-y-2 overflow-y-auto pr-1 flex-1 min-h-0 max-h-[55dvh] md:max-h-80">
+                {notifications.length === 0 ? (
+                  <p className="text-xs text-gray-400 text-center py-6">
+                    {isLoadingNotifs ? "Carregando notificações..." : "Sem notificações no momento."}
+                  </p>
+                ) : (
+                  notifications.map((n) => {
+                    const notifDate = formatNotificationDate(n.date);
+                    return (
+                      <Link
+                        key={n.id}
+                        href="/dashboard/agenda"
+                        onClick={() => closeNotif(false)}
+                        className="block text-xs p-3 rounded-xl bg-white/[0.03] border border-white/5 hover:border-[#DFBA73]/30 hover:bg-white/[0.05] transition-colors"
+                      >
+                        <div className="flex items-center justify-between gap-2">
+                          <p className="text-white font-medium truncate">
+                            {n.clientName || n.user?.name || "Cliente"}
+                          </p>
+                          <span className="text-[10px] text-[#DFBA73] font-mono font-bold shrink-0">
+                            {notifDate ? `${notifDate} • ` : ""}
+                            {getDisplayTime(n.date)}
+                          </span>
+                        </div>
+                        <p className="text-gray-400 text-[11px] mt-0.5 truncate">
+                          {n.service?.name || "Atendimento"}{" "}
+                          {n.service?.price ? `• R$ ${Number(n.service.price).toFixed(2)}` : ""}
+                        </p>
+                      </Link>
+                    );
+                  })
+                )}
+              </div>
+
+              <div className="mt-3 pt-2.5 border-t border-white/10 shrink-0">
+                <Link
+                  href="/dashboard/agenda"
+                  onClick={() => closeNotif(false)}
+                  className="flex items-center justify-center w-full py-2 rounded-xl bg-[#DFBA73]/10 hover:bg-[#DFBA73]/20 text-[#DFBA73] text-xs font-medium tracking-wide transition-colors"
+                >
+                  Ver agenda completa
+                </Link>
+              </div>
+            </motion.div>
+          </>
+        )}
+      </AnimatePresence>
     </div>
   );
 }
