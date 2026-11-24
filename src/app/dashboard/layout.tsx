@@ -142,9 +142,11 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   return (
     <div className="min-h-screen bg-[#050608] text-white relative overflow-x-clip font-sans selection:bg-[#DFBA73] selection:text-black">
       
-      {/* Background glow effects em tom dourado nobre */}
-      <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] bg-[#DFBA73]/5 blur-[140px] rounded-full pointer-events-none" />
-      <div className="absolute bottom-[-10%] right-[-10%] w-[40%] h-[40%] bg-[#B88B38]/5 blur-[140px] rounded-full pointer-events-none" />
+      {/* Background glow effects em tom dourado nobre perfeitamente contidos */}
+      <div className="absolute inset-0 overflow-hidden pointer-events-none z-0">
+        <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] bg-[#DFBA73]/5 blur-[140px] rounded-full" />
+        <div className="absolute bottom-[-10%] right-[-10%] w-[40%] h-[40%] bg-[#B88B38]/5 blur-[140px] rounded-full" />
+      </div>
 
       {/* Floating Sidebar (Desktop) */}
       <nav className="hidden md:flex fixed left-8 top-1/2 -translate-y-1/2 h-[80vh] w-20 flex-col items-center py-10 bg-[#080A0E]/90 border border-white/10 backdrop-blur-2xl rounded-3xl z-50 shadow-2xl">
@@ -243,6 +245,11 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             <Link 
               key={item.id} 
               href={item.id} 
+              onClick={() => {
+                if (isActive && typeof window !== "undefined") {
+                  window.scrollTo({ top: 0, behavior: "smooth" });
+                }
+              }}
               className={`p-1.5 flex flex-col items-center justify-center transition-all ${
                 isActive ? "text-[#DFBA73] scale-105" : "text-gray-400 hover:text-white"
               }`}
