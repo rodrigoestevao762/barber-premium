@@ -3,14 +3,30 @@
 import { useEffect, useState } from "react";
 import { getFechamentoData, closeCashRegister } from "./actions";
 import { motion } from "framer-motion";
-import { Archive, DollarSign, Wallet, Shield, Lock, ArrowLeft, CheckCircle2 } from "lucide-react";
+import { Archive, DollarSign, Wallet, Shield, Lock, ArrowLeft, CheckCircle2, TrendingDown } from "lucide-react";
 import { useSession } from "next-auth/react";
 import Image from "next/image";
 import Link from "next/link";
 import { BARBERS } from "@/lib/barbers";
 
 type BarberRevenue = { id?: string; name: string; total: number; commission: number; rate?: number; isOwner?: boolean };
-type FechamentoData = { totalRevenue: number; barberRevenues: BarberRevenue[]; closings: { createdAt: string | Date; closedBy: string | null }[] };
+type FechamentoData = {
+  totalRevenue: number;
+  totalExpenses: number;
+  netRevenue: number;
+  barberRevenues: BarberRevenue[];
+  closings: { createdAt: string | Date; closedBy: string | null }[];
+  monthlySummary?: {
+    month: string;
+    monthLabel: string;
+    grossRevenue: number;
+    expenses: number;
+    netProfit: number;
+    marginPercent: number;
+    completedCount: number;
+    expensesCount: number;
+  };
+};
 
 export default function FechamentoPage() {
   const { data: session } = useSession();
@@ -55,6 +71,7 @@ export default function FechamentoPage() {
     
     const result = await closeCashRegister({
       totalRevenue: data.totalRevenue,
+      totalExpenses: data.totalExpenses,
       barberRevenues: JSON.stringify(data.barberRevenues),
       closedBy: session?.user?.name || "Lucas Augusto (Master Barber)",
       dateStr: selectedDate
@@ -149,10 +166,10 @@ export default function FechamentoPage() {
         </motion.div>
       )}
 
-      {/* CARDS DE FATURAMENTO COM O OURO ESCOVADO DA VISÃO GERAL */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+      {/* CARDS DE FATURAMENTO DIÁRIO + DESPESAS + LÍQUIDO */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         
-        {/* Faturamento Bruto Total */}
+        {/* Faturamento Bruto Total do Dia */}
         <motion.div 
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
@@ -164,13 +181,35 @@ export default function FechamentoPage() {
               <DollarSign className="w-6 h-6" />
             </div>
             <div>
-              <p className="text-gray-400 text-[10px] uppercase font-mono tracking-widest">Faturamento Bruto</p>
-              <h3 className="text-3xl md:text-4xl font-serif text-white tracking-tight mt-1">
+              <p className="text-gray-400 text-[10px] uppercase font-mono tracking-widest">Produção Bruta (Dia)</p>
+              <h3 className="text-3xl font-serif text-white tracking-tight mt-1">
                 R$ {data.totalRevenue.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
               </h3>
             </div>
           </div>
-          <p className="text-xs text-gray-500 font-light">Soma de todos os cortes e atendimentos realizados no estúdio.</p>
+          <p className="text-xs text-gray-500 font-light">Soma de todos os cortes e atendimentos concluídos na data.</p>
+        </motion.div>
+
+        {/* Despesas do Dia */}
+        <motion.div 
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.05 }}
+          className="bg-[#080A0E] border border-white/10 rounded-3xl p-7 relative overflow-hidden group hover:border-rose-500/30 transition-all shadow-xl shadow-black/40"
+        >
+          <div className="absolute top-0 right-0 w-36 h-36 bg-rose-500/5 rounded-full blur-3xl pointer-events-none" />
+          <div className="flex items-center gap-4 mb-4">
+            <div className="w-12 h-12 bg-rose-500/10 border border-rose-500/30 rounded-2xl flex items-center justify-center text-rose-400">
+              <TrendingDown className="w-6 h-6" />
+            </div>
+            <div>
+              <p className="text-rose-400 text-[10px] uppercase font-mono tracking-widest">Despesas do Dia</p>
+              <h3 className="text-3xl font-serif text-rose-400 tracking-tight mt-1">
+                - R$ {(data.totalExpenses || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+              </h3>
+            </div>
+          </div>
+          <p className="text-xs text-gray-500 font-light">Saídas e insumos lançados no módulo Financeiro nesta data.</p>
         </motion.div>
 
         {/* Produção Líquida Lucas Augusto (100% Dono) */}
@@ -186,15 +225,75 @@ export default function FechamentoPage() {
               <Wallet className="w-6 h-6" />
             </div>
             <div>
-              <p className="text-[#F5D799] text-[10px] uppercase font-mono tracking-widest font-bold">Total Líquido do Dono (100%)</p>
-              <h3 className="text-3xl md:text-4xl font-serif text-[#F5D799] tracking-tight mt-1">
-                R$ {data.totalRevenue.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+              <p className="text-[#F5D799] text-[10px] uppercase font-mono tracking-widest font-bold">Lucro Líquido do Dia</p>
+              <h3 className="text-3xl font-serif text-[#F5D799] tracking-tight mt-1">
+                R$ {(data.netRevenue ?? data.totalRevenue).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
               </h3>
             </div>
           </div>
-          <p className="text-xs text-gray-400 font-light">Modelo solo: 100% retido pelo Master Barber Lucas Augusto.</p>
+          <p className="text-xs text-gray-400 font-light">Produção bruta deduzida das despesas do dia (100% Dono).</p>
         </motion.div>
       </div>
+
+      {/* CONSOLIDADO MENSAL NO FECHAMENTO */}
+      {data.monthlySummary && (
+        <div className="bg-[#080A0E] border border-[#DFBA73]/25 rounded-3xl p-6 md:p-7 space-y-4">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-white/5 pb-3">
+            <div>
+              <span className="text-[10px] font-mono uppercase tracking-widest text-[#DFBA73] font-bold">
+                Consolidado do Mês • {data.monthlySummary.monthLabel}
+              </span>
+              <h3 className="text-lg font-serif text-white mt-0.5">
+                Produção Bruta, Despesa e Lucro Líquido Mensal
+              </h3>
+            </div>
+            <Link
+              href="/dashboard/financeiro"
+              className="text-xs font-mono uppercase tracking-wider text-[#DFBA73] hover:underline"
+            >
+              Ver Extrato Mensal Completo →
+            </Link>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <div className="p-4 rounded-2xl bg-white/[0.02] border border-white/5">
+              <span className="text-[10px] font-mono uppercase tracking-wider text-gray-400">
+                Produção Bruta do Mês
+              </span>
+              <p className="text-2xl font-serif text-white mt-1">
+                R$ {data.monthlySummary.grossRevenue.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+              </p>
+              <span className="text-[11px] text-gray-500 font-mono">
+                {data.monthlySummary.completedCount} atendimentos
+              </span>
+            </div>
+
+            <div className="p-4 rounded-2xl bg-rose-500/[0.04] border border-rose-500/20">
+              <span className="text-[10px] font-mono uppercase tracking-wider text-rose-400">
+                Despesas do Mês
+              </span>
+              <p className="text-2xl font-serif text-rose-400 mt-1">
+                - R$ {data.monthlySummary.expenses.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+              </p>
+              <span className="text-[11px] text-gray-500 font-mono">
+                {data.monthlySummary.expensesCount} lançamentos
+              </span>
+            </div>
+
+            <div className="p-4 rounded-2xl bg-emerald-500/[0.06] border border-emerald-500/30">
+              <span className="text-[10px] font-mono uppercase tracking-wider text-emerald-400 font-bold">
+                Lucro Líquido do Mês
+              </span>
+              <p className="text-2xl font-serif text-emerald-300 font-bold mt-1">
+                R$ {data.monthlySummary.netProfit.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+              </p>
+              <span className="text-[11px] text-emerald-400/75 font-mono">
+                Margem de {data.monthlySummary.marginPercent.toFixed(1)}%
+              </span>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* DETALHAMENTO DO PROFISSIONAL (COM A FOTO E DADOS DE LUCAS AUGUSTO) */}
       <div className="space-y-4">

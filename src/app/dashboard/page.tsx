@@ -704,6 +704,91 @@ export default function DashboardPage() {
 
       </div>
 
+      {/* ━━━ CONSOLIDADO MENSAL (BRUTO, DESPESAS E LUCRO LÍQUIDO DO MÊS) ━━━ */}
+      {dashboardData.monthlySummary && (
+        <div className="bg-gradient-to-r from-[#080A0E] via-[#0b0e14] to-[#080A0E] border border-[#DFBA73]/30 rounded-3xl p-6 md:p-7 shadow-2xl space-y-5">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-white/10 pb-4">
+            <div>
+              <span className="text-[10px] font-mono uppercase tracking-[0.2em] text-[#DFBA73] font-bold">
+                Controle Mensal • {dashboardData.monthlySummary.monthLabel}
+              </span>
+              <h3 className="text-xl font-serif text-white mt-0.5">
+                Produção Bruta, Despesas & Lucro Líquido do Mês
+              </h3>
+            </div>
+            <a
+              href="/dashboard/financeiro"
+              className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-[#DFBA73]/15 hover:bg-[#DFBA73] text-[#F5D799] hover:text-black border border-[#DFBA73]/40 text-xs font-mono font-bold uppercase tracking-wider transition-all self-start sm:self-center"
+            >
+              <span>Abrir Financeiro Mensal</span>
+              <ChevronRight className="w-3.5 h-3.5" />
+            </a>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <div className="p-4 rounded-2xl bg-white/[0.03] border border-white/10">
+              <span className="text-[10px] font-mono uppercase tracking-wider text-gray-400">
+                Produção Bruta no Mês
+              </span>
+              <p className="text-2xl sm:text-3xl font-serif text-white font-bold mt-1">
+                R$ {Number(dashboardData.monthlySummary.grossRevenue || 0).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
+              </p>
+              <span className="text-[11px] text-gray-400 font-mono">
+                {dashboardData.monthlySummary.completedCount || 0} atendimentos concluídos
+              </span>
+            </div>
+
+            <div className="p-4 rounded-2xl bg-rose-500/[0.05] border border-rose-500/20">
+              <span className="text-[10px] font-mono uppercase tracking-wider text-rose-400 font-semibold">
+                Despesa Mensal
+              </span>
+              <p className="text-2xl sm:text-3xl font-serif text-rose-400 font-bold mt-1">
+                - R$ {Number(dashboardData.monthlySummary.expenses || 0).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
+              </p>
+              <span className="text-[11px] text-gray-400 font-mono">
+                {dashboardData.monthlySummary.expensesCount || 0} gastos registrados no mês
+              </span>
+            </div>
+
+            <div
+              className={`p-4 rounded-2xl border ${
+                Number(dashboardData.monthlySummary.netProfit || 0) >= 0
+                  ? "bg-emerald-500/10 border-emerald-500/30"
+                  : "bg-rose-500/10 border-rose-500/30"
+              }`}
+            >
+              <span
+                className={`text-[10px] font-mono uppercase tracking-wider font-bold ${
+                  Number(dashboardData.monthlySummary.netProfit || 0) >= 0
+                    ? "text-emerald-300"
+                    : "text-rose-300"
+                }`}
+              >
+                Lucro Líquido do Mês
+              </span>
+              <p
+                className={`text-2xl sm:text-3xl font-serif font-bold mt-1 ${
+                  Number(dashboardData.monthlySummary.netProfit || 0) >= 0
+                    ? "text-emerald-300"
+                    : "text-rose-300"
+                }`}
+              >
+                R$ {Number(dashboardData.monthlySummary.netProfit || 0).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
+              </p>
+              <span
+                className={`text-[11px] font-mono ${
+                  Number(dashboardData.monthlySummary.netProfit || 0) >= 0
+                    ? "text-emerald-300/80"
+                    : "text-rose-300/80"
+                }`}
+              >
+                Margem: {Number(dashboardData.monthlySummary.marginPercent || 0).toFixed(1)}%
+              </span>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* ━━━ TABELA DE ATENDIMENTOS DO DIA ━━━ */}
       <div className="bg-[#080A0E] border border-white/10 rounded-3xl p-6 md:p-8 shadow-2xl">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6 pb-4 border-b border-white/5">

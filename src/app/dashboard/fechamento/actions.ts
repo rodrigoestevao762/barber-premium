@@ -1,149 +1,122 @@
-"use server"
+"use server";
 
 import prisma from "@/lib/prisma";
 import { BARBERS } from "@/lib/barbers";
-import { 
-  getAppointmentsForDate, 
-  getStoredClosingsForDate, 
+import { getServerSession } from "next-auth";
+import { authOptions } from "@/lib/auth";
+import {
+  getStoredClosingsForDate,
   addStoredClosing,
-  getLocalDateString 
+  getLocalDateString,
 } from "@/lib/appointments-store";
+import { getMonthlyFinancialSummary } from "@/lib/financial-summary";
+
+async function requireAdminSession() {
+  const session = await getServerSession(authOptions);
+  const userRole = (session?.user as any)?.role;
+  if (!session || userRole !== "ADMIN") {
+    return null;
+  }
+  return session;
+}
 
 export async function getFechamentoData(dateStr?: string) {
   try {
+    if (!(await requireAdminSession())) {
+      return { success: false as const, error: "Acesso restrito ao gestor." };
+    }
+
     const targetDateStr = dateStr || getLocalDateString();
     const start = new Date(`${targetDateStr}T00:00:00-03:00`);
     const end = new Date(`${targetDateStr}T23:59:59.999-03:00`);
 
-    let appointments: any[] = [];
-    let closings: any[] = [];
-
-    try {
-      appointments = await prisma.appointment.findMany({
-        where: {
-          date: {
-            gte: start,
-            lte: end,
+    const [summary, closings] = await Promise.all([
+      getMonthlyFinancialSummary(targetDateStr.slice(0, 7), targetDateStr),
+      prisma.cashClosing
+        .findMany({
+          where: {
+            date: { gte: start, lte: end },
           },
-          status: "COMPLETED",
-        },
-        include: {
-          service: true,
-          barber: true,
-        }
-      });
+          orderBy: { createdAt: "desc" },
+        })
+        .catch(() => getStoredClosingsForDate(targetDateStr)),
+    ]);
 
-      closings = await prisma.cashClosing.findMany({
-        where: {
-          date: {
-            gte: start,
-            lte: end,
-          }
-        },
-        orderBy: {
-          createdAt: 'desc'
-        }
-      });
-    } catch (dbErr) {
-      const storedApts = getAppointmentsForDate(targetDateStr, null);
-      appointments = storedApts.filter(a => a.status === "COMPLETED" || a.status === "CONFIRMED");
-      closings = getStoredClosingsForDate(targetDateStr);
-    }
+    const dayRevenue = summary.selectedDay?.grossRevenue || 0;
+    const dayExpenses = summary.selectedDay?.expenses || 0;
+    const dayNet = summary.selectedDay?.netProfit ?? dayRevenue - dayExpenses;
 
-    let totalRevenue = 0;
     const masterBarber = BARBERS[0] || { id: "barbeiro-lucas", name: "Lucas Augusto" };
-    
+
     // LAS Barber Studio possui modelo 100% exclusivo com o proprietário Lucas Augusto
     const barberRevenue = {
       id: masterBarber.id,
       name: masterBarber.name,
-      total: 0,
-      commission: 0,
+      total: dayRevenue,
+      commission: dayNet,
       rate: 1.0,
       isOwner: true,
     };
 
-    appointments.forEach(app => {
-      const price = app.service?.price || 0;
-      totalRevenue += price;
-      barberRevenue.total += price;
-      barberRevenue.commission += price;
-    });
-
-    const sanitizedClosings = closings.map((c: any) => ({
+    const sanitizedClosings = (closings || []).map((c: any) => ({
       ...c,
-      closedBy: (!c.closedBy || c.closedBy.includes("Bastos") || c.closedBy.includes("Mr."))
-        ? "Lucas Augusto (Master Barber)"
-        : c.closedBy,
+      closedBy:
+        !c.closedBy || c.closedBy.includes("Bastos") || c.closedBy.includes("Mr.")
+          ? "Lucas Augusto (Master Barber)"
+          : c.closedBy,
     }));
 
     return {
       success: true as const,
       data: {
-        totalRevenue,
+        totalRevenue: dayRevenue,
+        totalExpenses: dayExpenses,
+        netRevenue: dayNet,
         barberRevenues: [barberRevenue],
-        closings: sanitizedClosings
-      }
+        closings: sanitizedClosings,
+        monthlySummary: {
+          month: summary.month,
+          monthLabel: summary.monthLabel,
+          grossRevenue: summary.grossRevenue,
+          expenses: summary.expenses,
+          netProfit: summary.netProfit,
+          marginPercent: summary.marginPercent,
+          completedCount: summary.completedCount,
+          expensesCount: summary.expensesCount,
+        },
+      },
     };
   } catch (error: unknown) {
     console.error("Action error:", error);
-    const targetDateStr = dateStr || getLocalDateString();
-    const storedApts = getAppointmentsForDate(targetDateStr, null);
-    const completedApts = storedApts.filter(a => a.status === "COMPLETED" || a.status === "CONFIRMED");
-    const rawClosings = getStoredClosingsForDate(targetDateStr);
-
-    let totalRevenue = 0;
-    const masterBarber = BARBERS[0] || { id: "barbeiro-lucas", name: "Lucas Augusto" };
-    const barberRevenue = {
-      id: masterBarber.id,
-      name: masterBarber.name,
-      total: 0,
-      commission: 0,
-      rate: 1.0,
-      isOwner: true,
-    };
-
-    completedApts.forEach(app => {
-      const price = app.service?.price || 0;
-      totalRevenue += price;
-      barberRevenue.total += price;
-      barberRevenue.commission += price;
-    });
-
-    const sanitizedClosings = rawClosings.map((c: any) => ({
-      ...c,
-      closedBy: (!c.closedBy || c.closedBy.includes("Bastos") || c.closedBy.includes("Mr."))
-        ? "Lucas Augusto (Master Barber)"
-        : c.closedBy,
-    }));
-
-    return {
-      success: true as const,
-      data: {
-        totalRevenue,
-        barberRevenues: [barberRevenue],
-        closings: sanitizedClosings
-      }
-    };
+    const msg = error instanceof Error ? error.message : String(error);
+    return { success: false as const, error: msg };
   }
 }
 
-export async function closeCashRegister(data: { totalRevenue: number, barberRevenues: string, closedBy: string, dateStr: string }) {
+export async function closeCashRegister(data: {
+  totalRevenue: number;
+  totalExpenses?: number;
+  barberRevenues: string;
+  closedBy: string;
+  dateStr: string;
+}) {
   try {
-    const parsedRevenues = JSON.parse(data.barberRevenues);
-    const totalCommissions = parsedRevenues.reduce((acc: number, b: any) => acc + b.commission, 0);
+    if (!(await requireAdminSession())) {
+      return { success: false, error: "Acesso restrito ao gestor." };
+    }
 
     const closingDate = new Date(`${data.dateStr}T23:59:59-03:00`);
+    const expensesAmount = Number(data.totalExpenses || 0);
 
     try {
       const closing = await prisma.cashClosing.create({
         data: {
           date: closingDate,
           totalRevenue: data.totalRevenue,
-          totalExpenses: 0,
+          totalExpenses: expensesAmount,
           barberRevenues: data.barberRevenues,
           closedBy: data.closedBy,
-        }
+        },
       });
       return { success: true, data: closing };
     } catch (dbErr) {
@@ -151,7 +124,7 @@ export async function closeCashRegister(data: { totalRevenue: number, barberReve
         id: `closing-${Date.now()}`,
         date: data.dateStr,
         totalRevenue: data.totalRevenue,
-        totalExpenses: 0,
+        totalExpenses: expensesAmount,
         barberRevenues: data.barberRevenues,
         closedBy: data.closedBy,
         createdAt: new Date().toISOString(),
@@ -159,7 +132,7 @@ export async function closeCashRegister(data: { totalRevenue: number, barberReve
 
       return {
         success: true,
-        data: storedClosing
+        data: storedClosing,
       };
     }
   } catch (error: unknown) {

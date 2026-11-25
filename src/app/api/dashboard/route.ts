@@ -12,6 +12,7 @@ import {
   getLocalDateString 
 } from '@/lib/appointments-store';
 import { parseBrazilDateTime } from '@/lib/timezone';
+import { getMonthlyFinancialSummary } from '@/lib/financial-summary';
 
 export const dynamic = 'force-dynamic';
 
@@ -178,6 +179,8 @@ export async function GET(req: Request) {
     // Como Lucas Augusto trabalha sozinho, 100% da receita é dele / do Studio
     const soloBarber = BARBERS[0];
     const bApts = allDayAppointments;
+
+    const monthlySummaryData = await getMonthlyFinancialSummary(dateParam.slice(0, 7), dateParam);
     const completedList = bApts.filter((apt) => apt.status === "COMPLETED");
     const totalGrossRevenue = completedList.reduce((acc, apt) => acc + (apt.service?.price || 0), 0);
     const ticketMedio = completedList.length > 0 ? totalGrossRevenue / completedList.length : 0;
@@ -223,6 +226,17 @@ export async function GET(req: Request) {
       upcomingAppointments,
       barberBreakdown: breakdown,
       barbersList: [soloBarber],
+      monthlySummary: {
+        month: monthlySummaryData.month,
+        monthLabel: monthlySummaryData.monthLabel,
+        grossRevenue: monthlySummaryData.grossRevenue,
+        expenses: monthlySummaryData.expenses,
+        netProfit: monthlySummaryData.netProfit,
+        marginPercent: monthlySummaryData.marginPercent,
+        completedCount: monthlySummaryData.completedCount,
+        expensesCount: monthlySummaryData.expensesCount,
+        ticketMedio: monthlySummaryData.ticketMedio,
+      },
     });
   } catch (error) {
     return NextResponse.json({ error: "Erro ao buscar dados do dashboard" }, { status: 500 });
