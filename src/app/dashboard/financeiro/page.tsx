@@ -29,6 +29,8 @@ import {
 import { BARBERS } from "@/lib/barbers";
 import { OFFICIAL_SERVICES } from "@/lib/services";
 import { useSession } from "next-auth/react";
+import { WalkInTimePicker } from "@/components/WalkInTimePicker";
+import { getDefaultWalkInSlot } from "@/lib/studio-slots";
 
 type ExpenseCategory = "INSUMOS" | "FIXO" | "OUTROS";
 
@@ -159,6 +161,10 @@ export default function FinanceiroPage() {
   const [selectedServiceId, setSelectedServiceId] = useState<string>(
     OFFICIAL_SERVICES[0]?.id || "corte"
   );
+  const [walkInClientName, setWalkInClientName] = useState<string>("Cliente Balcão");
+  const [walkInDate, setWalkInDate] = useState<string>(getTodayDateStr);
+  const [walkInTime, setWalkInTime] = useState<string>(() => getDefaultWalkInSlot());
+  const [walkInStatus, setWalkInStatus] = useState<"COMPLETED" | "CONFIRMED">("COMPLETED");
   const [paymentMethod, setPaymentMethod] = useState<string>("PIX");
   const [toastMessage, setToastMessage] = useState<string | null>(null);
 
@@ -246,7 +252,10 @@ export default function FinanceiroPage() {
 
   // Registrar Atendimento Balcão
   const handleRegisterWalkIn = async () => {
-    if (viewMode === "daily" && isCaixaClosed) {
+    const targetDay = walkInDate || (viewMode === "daily" ? selectedDate : getTodayDateStr());
+    const targetTime = walkInTime || getDefaultWalkInSlot(targetDay);
+
+    if (viewMode === "daily" && isCaixaClosed && targetDay === selectedDate) {
       alert("O caixa deste dia está fechado. Reabra o caixa para registrar novos atendimentos.");
       return;
     }
@@ -256,22 +265,16 @@ export default function FinanceiroPage() {
     setIsSubmitting(true);
 
     try {
-      const now = new Date();
-      const timeStr = `${String(now.getHours()).padStart(2, "0")}:${String(
-        now.getMinutes()
-      ).padStart(2, "0")}:00`;
-      const targetDay = viewMode === "daily" ? selectedDate : getTodayDateStr();
-
       const res = await fetch("/api/appointments", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           serviceId: chosenService.id,
           barberId: BARBERS[0].id,
-          date: `${targetDay}T${timeStr}-03:00`,
+          date: `${targetDay}T${targetTime}:00-03:00`,
           isWalkIn: true,
-          status: "COMPLETED",
-          clientName: "Cliente Balcão",
+          status: walkInStatus,
+          clientName: walkInClientName.trim() || "Cliente Balcão",
           paymentMethod,
         }),
       });
@@ -283,7 +286,9 @@ export default function FinanceiroPage() {
       setIsWalkInModalOpen(false);
       await loadFinancialData(selectedMonth, selectedDate);
       setToastMessage(
-        `Ritual "${chosenService.name}" de R$ ${chosenService.price.toFixed(2)} lançado no caixa!`
+        walkInStatus === "COMPLETED"
+          ? `Ritual "${chosenService.name}" (R$ ${chosenService.price.toFixed(2)}) às ${targetTime} lançado no caixa e bloqueado na agenda!`
+          : `Cliente Balcão agendado às ${targetTime} e horário indisponibilizado na agenda!`
       );
     } catch (e) {
       console.error("Erro ao registrar atendimento balcão:", e);
@@ -499,7 +504,14 @@ export default function FinanceiroPage() {
 
           <button
             type="button"
-            onClick={() => setIsWalkInModalOpen(true)}
+            onClick={() => {
+              const targetDay = viewMode === "daily" ? selectedDate : getTodayDateStr();
+              setWalkInDate(targetDay);
+              setWalkInTime(getDefaultWalkInSlot(targetDay));
+              setWalkInStatus("COMPLETED");
+              setWalkInClientName("Cliente Balcão");
+              setIsWalkInModalOpen(true);
+            }}
             className="px-5 py-2.5 rounded-2xl bg-gradient-to-r from-[#F5D799] via-[#DFBA73] to-[#B88B38] text-black font-bold text-xs uppercase font-mono tracking-wider hover:brightness-110 transition-all flex items-center justify-center gap-2 shadow-lg shadow-[#DFBA73]/20 cursor-pointer"
           >
             <Plus className="w-3.5 h-3.5" />
@@ -1378,14 +1390,26 @@ export default function FinanceiroPage() {
                     Registrar <span className="text-[#DFBA73] italic">Serviço Balcão</span>
                   </h2>
                   <p className="text-gray-400 text-xs mt-1 font-light">
-                    Lançar atendimento diretamente no caixa de{" "}
-                    <strong className="text-white">Lucas Augusto</strong> para o dia{" "}
-                    {formatFullDate(viewMode === "daily" ? selectedDate : getTodayDateStr())}.
+                    Lançar atendimento para <strong className="text-white">Lucas Augusto</strong> e
+                    indisponibilizar o horário escolhido na agenda.
                   </p>
                 </div>
 
                 {/* Scroll Body */}
                 <div className="p-6 md:p-8 pt-4 overflow-y-auto space-y-5 relative z-10 flex-1">
+                  <div>
+                    <label className="block text-gray-400 text-xs uppercase font-mono tracking-wider mb-1.5 font-medium">
+                      Nome do Cliente
+                    </label>
+                    <input
+                      type="text"
+                      value={walkInClientName}
+                      onChange={(e) => setWalkInClientName(e.target.value)}
+                      placeholder="Ex: Cliente Balcão ou nome"
+                      className="w-full bg-white/[0.03] border border-white/10 rounded-xl py-2.5 px-4 text-white text-sm focus:border-[#DFBA73] focus:outline-none font-mono"
+                    />
+                  </div>
+
                   <div>
                     <label className="block text-gray-400 text-xs uppercase font-mono tracking-wider mb-2 font-medium">
                       1. Selecione o Ritual
@@ -1440,7 +1464,46 @@ export default function FinanceiroPage() {
 
                   <div>
                     <label className="block text-gray-400 text-xs uppercase font-mono tracking-wider mb-2 font-medium">
-                      2. Forma de Pagamento
+                      2. Data, Horário & Situação
+                    </label>
+                    <div className="space-y-4">
+                      <WalkInTimePicker
+                        date={walkInDate}
+                        time={walkInTime}
+                        onDateChange={setWalkInDate}
+                        onTimeChange={setWalkInTime}
+                      />
+
+                      <div className="grid grid-cols-2 gap-2">
+                        <button
+                          type="button"
+                          onClick={() => setWalkInStatus("COMPLETED")}
+                          className={`py-2 px-3 rounded-xl text-xs font-mono font-bold border transition-all cursor-pointer ${
+                            walkInStatus === "COMPLETED"
+                              ? "border-emerald-400 bg-emerald-500/20 text-emerald-300"
+                              : "border-white/10 text-gray-400 hover:text-white bg-white/[0.02]"
+                          }`}
+                        >
+                          Concluído (Entra no caixa)
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setWalkInStatus("CONFIRMED")}
+                          className={`py-2 px-3 rounded-xl text-xs font-mono font-bold border transition-all cursor-pointer ${
+                            walkInStatus === "CONFIRMED"
+                              ? "border-[#DFBA73] bg-[#DFBA73]/20 text-[#F5D799]"
+                              : "border-white/10 text-gray-400 hover:text-white bg-white/[0.02]"
+                          }`}
+                        >
+                          Confirmado (Na cadeira)
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-gray-400 text-xs uppercase font-mono tracking-wider mb-2 font-medium">
+                      3. Forma de Pagamento
                     </label>
                     <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
                       {[

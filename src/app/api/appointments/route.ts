@@ -3,12 +3,13 @@ import prisma from '@/lib/prisma';
 import bcrypt from 'bcryptjs';
 import { BARBERS, getBarberById } from '@/lib/barbers';
 import { OFFICIAL_SERVICES } from '@/lib/services';
-import { addStoredAppointment, getAllStoredAppointments } from '@/lib/appointments-store';
+import { getAllStoredAppointments, getAppointmentsForDate, addStoredAppointment } from '@/lib/appointments-store';
 import { upsertStoredUser } from '@/lib/users-store';
-import { getBrazilNow, getBrazilDateAndTimeString, parseBrazilDateTime } from '@/lib/timezone';
+import { getBrazilNow, getBrazilDateAndTimeString, parseBrazilDateTime, formatAptTimeToHHMM } from '@/lib/timezone';
 import { checkDayStatusDB, getDayScheduleDB } from '@/lib/studio-schedule';
 import { isBarberAvailable } from '@/lib/barber-availability';
 import { sendAppointmentConfirmationEmail, sendNewBookingNotificationToBarber } from '@/lib/resend';
+import { getBaseSlotsForDate, doesBookingOccupySlot } from '@/lib/studio-slots';
 
 export async function POST(req: Request) {
   try {
@@ -85,6 +86,40 @@ export async function POST(req: Request) {
         return NextResponse.json(
           { error: "Não é possível agendar um horário que já passou. Por favor, escolha um horário futuro." },
           { status: 400 }
+        );
+      }
+
+      // 2.3 Garante que o horário não tenha sido ocupado por agendamento online ou Cliente Balcão
+      const daySlots = getBaseSlotsForDate(requestedBrazil.date);
+      const startOfDay = new Date(`${requestedBrazil.date}T00:00:00-03:00`);
+      const endOfDay = new Date(`${requestedBrazil.date}T23:59:59-03:00`);
+      const existingTimes: string[] = [];
+
+      try {
+        const dbExisting = await prisma.appointment.findMany({
+          where: {
+            date: { gte: startOfDay, lte: endOfDay },
+            status: { notIn: ["CANCELLED"] },
+          },
+          select: { date: true },
+        });
+        dbExisting.forEach((a) => existingTimes.push(formatAptTimeToHHMM(a.date)));
+      } catch (_) {}
+
+      getAppointmentsForDate(requestedBrazil.date, null)
+        .filter((a) => a.status !== "CANCELLED")
+        .forEach((a) => existingTimes.push(formatAptTimeToHHMM(a.date)));
+
+      const isConflict = existingTimes.some(
+        (bt) =>
+          doesBookingOccupySlot(bt, requestedBrazil.time, daySlots) ||
+          doesBookingOccupySlot(requestedBrazil.time, bt, daySlots)
+      );
+
+      if (isConflict) {
+        return NextResponse.json(
+          { error: "Este horário já foi ocupado na agenda. Por favor, escolha outro horário disponível." },
+          { status: 409 }
         );
       }
     }

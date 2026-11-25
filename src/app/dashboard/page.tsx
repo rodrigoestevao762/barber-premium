@@ -15,6 +15,8 @@ import { BARBERS, BarberData } from "@/lib/barbers";
 import { OFFICIAL_SERVICES, ServiceItem } from "@/lib/services";
 import { getDisplayTime } from "@/lib/timezone";
 import { LunchBreakControl } from "@/components/LunchBreakControl";
+import { WalkInTimePicker } from "@/components/WalkInTimePicker";
+import { getDefaultWalkInSlot } from "@/lib/studio-slots";
 
 export default function DashboardPage() {
   const { data: session } = useSession();
@@ -39,6 +41,12 @@ export default function DashboardPage() {
   const [selectedServiceId, setSelectedServiceId] = useState<string>("corte");
   const [walkInClientName, setWalkInClientName] = useState<string>("Cliente Balcão");
   const [walkInClientPhone, setWalkInClientPhone] = useState<string>("");
+  const [walkInDate, setWalkInDate] = useState<string>(() => {
+    const d = new Date();
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+  });
+  const [walkInTime, setWalkInTime] = useState<string>(() => getDefaultWalkInSlot());
+  const [walkInStatus, setWalkInStatus] = useState<"COMPLETED" | "CONFIRMED">("COMPLETED");
   const [paymentMethod, setPaymentMethod] = useState<string>("PIX");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
@@ -282,18 +290,18 @@ export default function DashboardPage() {
     setIsSubmitting(true);
     try {
       const serviceToUse = OFFICIAL_SERVICES.find(s => s.id === (overrideServiceId || selectedServiceId)) || OFFICIAL_SERVICES[0];
-      
-      const now = new Date();
-      const timeStr = `${String(now.getHours()).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")}:00`;
+      const targetDate = walkInDate || selectedDate;
+      const targetTime = walkInTime || getDefaultWalkInSlot(targetDate);
+
       const res = await fetch('/api/appointments', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ 
           serviceId: serviceToUse.id, 
           barberId: "barbeiro-lucas", 
-          date: `${selectedDate}T${timeStr}-03:00`, 
+          date: `${targetDate}T${targetTime}:00-03:00`, 
           isWalkIn: true,
-          status: "COMPLETED",
+          status: walkInStatus,
           clientName: walkInClientName.trim() || "Cliente Balcão",
           clientPhone: walkInClientPhone.trim() || "69993783204",
           paymentMethod,
@@ -305,7 +313,11 @@ export default function DashboardPage() {
         setWalkInClientName("Cliente Balcão");
         setWalkInClientPhone("");
         await fetchDashboard();
-        setToastMessage(`Atendimento de R$ ${serviceToUse.price.toFixed(2)} registrado com sucesso no caixa de Lucas Augusto!`);
+        setToastMessage(
+          walkInStatus === "COMPLETED"
+            ? `Atendimento de R$ ${serviceToUse.price.toFixed(2)} às ${targetTime} lançado no caixa e bloqueado na agenda!`
+            : `Cliente Balcão marcado às ${targetTime} e horário indisponibilizado na agenda!`
+        );
       }
     } catch (e) {
       console.error("Erro ao registrar balcão:", e);
@@ -401,7 +413,13 @@ export default function DashboardPage() {
           </div>
 
           <button 
-            onClick={() => setIsModalOpen(true)} 
+            type="button"
+            onClick={() => {
+              setWalkInDate(selectedDate);
+              setWalkInTime(getDefaultWalkInSlot(selectedDate));
+              setWalkInStatus("COMPLETED");
+              setIsModalOpen(true);
+            }} 
             className="bg-gradient-to-r from-[#F5D799] via-[#DFBA73] to-[#B88B38] text-black font-bold hover:brightness-110 px-5 py-2.5 rounded-xl text-xs uppercase tracking-wider transition-all duration-300 shadow-lg shadow-[#DFBA73]/25 flex items-center gap-2 cursor-pointer font-mono"
           >
             <UserPlus className="w-4 h-4" /> + Cliente Balcão
@@ -1006,6 +1024,43 @@ export default function DashboardPage() {
                 </select>
               </div>
 
+              <WalkInTimePicker
+                date={walkInDate}
+                time={walkInTime}
+                onDateChange={setWalkInDate}
+                onTimeChange={setWalkInTime}
+              />
+
+              <div>
+                <label className="block text-gray-400 text-xs uppercase tracking-wider mb-1.5 font-mono">
+                  Situação do Atendimento
+                </label>
+                <div className="grid grid-cols-2 gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setWalkInStatus("COMPLETED")}
+                    className={`py-2 px-3 rounded-xl text-xs font-mono font-bold border transition-all cursor-pointer ${
+                      walkInStatus === "COMPLETED"
+                        ? "border-emerald-400 bg-emerald-500/20 text-emerald-300"
+                        : "border-white/10 text-gray-400 hover:text-white bg-white/[0.02]"
+                    }`}
+                  >
+                    Concluído (Entra no caixa)
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setWalkInStatus("CONFIRMED")}
+                    className={`py-2 px-3 rounded-xl text-xs font-mono font-bold border transition-all cursor-pointer ${
+                      walkInStatus === "CONFIRMED"
+                        ? "border-[#DFBA73] bg-[#DFBA73]/20 text-[#F5D799]"
+                        : "border-white/10 text-gray-400 hover:text-white bg-white/[0.02]"
+                    }`}
+                  >
+                    Confirmado (Na cadeira)
+                  </button>
+                </div>
+              </div>
+
               <div>
                 <label className="block text-gray-400 text-xs uppercase tracking-wider mb-1 font-mono">
                   Forma de Pagamento
@@ -1034,7 +1089,11 @@ export default function DashboardPage() {
                 onClick={() => submitWalkIn()}
                 className="w-full py-4 bg-gradient-to-r from-[#F5D799] via-[#DFBA73] to-[#B88B38] text-black font-bold uppercase tracking-widest text-xs rounded-xl mt-4 transition-all shadow-lg shadow-[#DFBA73]/25 cursor-pointer hover:brightness-110"
               >
-                {isSubmitting ? "Lançando..." : `Confirmar R$ ${activeChosenService.price} no Caixa`}
+                {isSubmitting
+                  ? "Salvando..."
+                  : walkInStatus === "COMPLETED"
+                  ? `Confirmar R$ ${activeChosenService.price} às ${walkInTime}`
+                  : `Reservar Horário ${walkInTime} na Agenda`}
               </button>
             </div>
           </motion.div>

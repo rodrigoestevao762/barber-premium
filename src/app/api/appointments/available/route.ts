@@ -1,10 +1,14 @@
 import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
-import { BARBERS } from "@/lib/barbers";
 import { getAppointmentsForDate } from "@/lib/appointments-store";
 import { getBrazilNow, formatAptTimeToHHMM } from "@/lib/timezone";
 import { checkDayStatus } from "@/lib/holidays";
 import { getDayScheduleDB } from "@/lib/studio-schedule";
+import {
+  WEEKDAY_HOURS,
+  SATURDAY_HOURS,
+  doesBookingOccupySlot,
+} from "@/lib/studio-slots";
 
 export const dynamic = "force-dynamic";
 
@@ -15,45 +19,11 @@ function jsonNoStore(body: unknown, status = 200) {
   });
 }
 
-// Horários Oficiais do LAS Barber Studio:
-// - Segunda a Sexta: 08:30 às 20:00
-// - Sábado: 08:30 às 18:00
-// - Domingo: Fechado
-const WEEKDAY_HOURS = [
-  "08:30",
-  "09:00",
-  "10:00",
-  "11:00",
-  "12:00",
-  "13:00",
-  "14:00",
-  "15:00",
-  "16:00",
-  "17:00",
-  "18:00",
-  "19:00",
-  "20:00",
-];
-
-const SATURDAY_HOURS = [
-  "08:30",
-  "09:00",
-  "10:00",
-  "11:00",
-  "12:00",
-  "13:00",
-  "14:00",
-  "15:00",
-  "16:00",
-  "17:00",
-  "18:00",
-];
-
 export async function GET(req: Request) {
   try {
     const { searchParams } = new URL(req.url);
     const dateParam = searchParams.get("date");
-    const barberId = searchParams.get("barberId") || "barbeiro-lucas";
+    const includePast = searchParams.get("includePast") === "1";
 
     if (!dateParam) {
       return NextResponse.json({ error: "Data não informada" }, { status: 400 });
@@ -61,9 +31,9 @@ export async function GET(req: Request) {
 
     const cleanDateStr = dateParam.substring(0, 10);
 
-    // 1. Verificação de Domingo e data no passado
+    // 1. Verificação de Domingo
     const dayStatus = checkDayStatus(cleanDateStr);
-    if (dayStatus.isSunday) {
+    if (dayStatus.isSunday && !includePast) {
       return jsonNoStore({
         availableTimes: [],
         isClosed: true,
@@ -76,14 +46,14 @@ export async function GET(req: Request) {
 
     const brazilNow = getBrazilNow();
 
-    // 2. Se a data for no passado (antes de hoje no Brasil), não há horários livres
-    if (cleanDateStr < brazilNow.date) {
+    // 2. Se a data for no passado (antes de hoje no Brasil), não há horários livres para clientes online
+    if (cleanDateStr < brazilNow.date && !includePast) {
       return jsonNoStore({ availableTimes: [] });
     }
 
     // 2.1 Busca configuração oficial da escala e pausa para almoço no PostgreSQL
     const schedule = await getDayScheduleDB(cleanDateStr);
-    if (schedule.isClosed) {
+    if (schedule.isClosed && !includePast) {
       return jsonNoStore({
         availableTimes: [],
         isClosed: true,
@@ -95,28 +65,30 @@ export async function GET(req: Request) {
     }
 
     // 3. Determina os horários base de acordo com o dia da semana
-    // 0 = Domingo, 1 = Segunda, ..., 6 = Sábado
     const [yStr, mStr, dStr] = cleanDateStr.split("-");
-    const dateObj = new Date(Date.UTC(parseInt(yStr, 10), parseInt(mStr, 10) - 1, parseInt(dStr, 10), 12, 0, 0));
+    const dateObj = new Date(
+      Date.UTC(parseInt(yStr, 10), parseInt(mStr, 10) - 1, parseInt(dStr, 10), 12, 0, 0)
+    );
     const dayOfWeek = dateObj.getUTCDay();
 
-    let baseHours = dayOfWeek === 6 ? [...SATURDAY_HOURS] : [...WEEKDAY_HOURS];
+    const orderedDaySlots = dayOfWeek === 6 ? [...SATURDAY_HOURS] : [...WEEKDAY_HOURS];
+    let baseHours = [...orderedDaySlots];
 
-    // 4. Verificação de Encerramento Antecipado (Caso o barbeiro precise sair mais cedo neste dia)
+    // 4. Verificação de Encerramento Antecipado
     const earlyClosingTime = schedule.earlyClosingTime;
-    if (earlyClosingTime) {
+    if (earlyClosingTime && !includePast) {
       baseHours = baseHours.filter((time) => time <= earlyClosingTime);
     }
 
-    // 4.1 Verificação de Pausa para Almoço do Barbeiro (Fixa diária ou específica desta data)
+    // 4.1 Verificação de Pausa para Almoço do Barbeiro
     const lunchBreakTime = schedule.lunchBreakTime;
     const lunchBreakSlots = schedule.lunchBreakSlots;
-    if (lunchBreakSlots.length > 0) {
+    if (lunchBreakSlots.length > 0 && !includePast) {
       baseHours = baseHours.filter((time) => !lunchBreakSlots.includes(time));
     }
 
-    // 5. Se for o dia de hoje, remove horários que já passaram
-    if (cleanDateStr === brazilNow.date) {
+    // 5. Se for o dia de hoje, remove horários que já passaram (apenas para visão pública)
+    if (cleanDateStr === brazilNow.date && !includePast) {
       baseHours = baseHours.filter((time) => time > brazilNow.time);
     }
 
@@ -124,8 +96,9 @@ export async function GET(req: Request) {
     const startOfDay = new Date(`${cleanDateStr}T00:00:00-03:00`);
     const endOfDay = new Date(`${cleanDateStr}T23:59:59-03:00`);
 
+    const bookedTimes: string[] = [];
+
     try {
-      // 6. Busca agendamentos ocupados no banco de dados
       const bookedAppointments = await prisma.appointment.findMany({
         where: {
           date: { gte: startOfDay, lte: endOfDay },
@@ -133,45 +106,47 @@ export async function GET(req: Request) {
         },
       });
 
-      const bookedTimes = (bookedAppointments || []).map((apt) => formatAptTimeToHHMM(apt.date));
-
-      // Também verifica no store em memória para contingência
-      const storedApts = getAppointmentsForDate(cleanDateStr, null);
-      storedApts
-        .filter((apt) => apt.status !== "CANCELLED")
-        .forEach((apt) => {
-          const t = formatAptTimeToHHMM(apt.date);
-          if (!bookedTimes.includes(t)) {
-            bookedTimes.push(t);
-          }
-        });
-
-      const availableTimes = baseHours.filter((time) => !bookedTimes.includes(time));
-
-      return jsonNoStore({
-        availableTimes,
-        isSaturday: dayOfWeek === 6,
-        earlyClosingTime: earlyClosingTime || null,
-        lunchBreakTime: lunchBreakTime || null,
-        lunchBreakSlots,
+      (bookedAppointments || []).forEach((apt) => {
+        const t = formatAptTimeToHHMM(apt.date);
+        if (!bookedTimes.includes(t)) bookedTimes.push(t);
       });
-    } catch (dbErr) {
-      // Fallback em memória
-      const storedApts = getAppointmentsForDate(cleanDateStr, null);
-      const bookedTimes = storedApts
-        .filter((apt) => apt.status !== "CANCELLED")
-        .map((apt) => formatAptTimeToHHMM(apt.date));
-
-      const availableTimes = baseHours.filter((time) => !bookedTimes.includes(time));
-
-      return jsonNoStore({
-        availableTimes,
-        isSaturday: dayOfWeek === 6,
-        earlyClosingTime: earlyClosingTime || null,
-        lunchBreakTime: lunchBreakTime || null,
-        lunchBreakSlots,
-      });
+    } catch (_) {
+      // fallback segue abaixo com store em memória
     }
+
+    const storedApts = getAppointmentsForDate(cleanDateStr, null);
+    storedApts
+      .filter((apt) => apt.status !== "CANCELLED")
+      .forEach((apt) => {
+        const t = formatAptTimeToHHMM(apt.date);
+        if (!bookedTimes.includes(t)) {
+          bookedTimes.push(t);
+        }
+      });
+
+    const availableTimes = baseHours.filter(
+      (slot) => !bookedTimes.some((bt) => doesBookingOccupySlot(bt, slot, orderedDaySlots))
+    );
+
+    const occupiedSlots = orderedDaySlots.filter((slot) =>
+      bookedTimes.some((bt) => doesBookingOccupySlot(bt, slot, orderedDaySlots))
+    );
+
+    return jsonNoStore({
+      availableTimes,
+      ...(includePast
+        ? {
+            baseSlots: orderedDaySlots,
+            occupiedSlots,
+            bookedTimes,
+            isClosed: dayStatus.isSunday || schedule.isClosed,
+          }
+        : {}),
+      isSaturday: dayOfWeek === 6,
+      earlyClosingTime: earlyClosingTime || null,
+      lunchBreakTime: lunchBreakTime || null,
+      lunchBreakSlots,
+    });
   } catch (error) {
     console.error("Erro ao buscar horários disponíveis:", error);
     return NextResponse.json({ error: "Erro ao buscar horários" }, { status: 500 });

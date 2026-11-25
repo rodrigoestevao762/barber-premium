@@ -14,6 +14,8 @@ import { OFFICIAL_SERVICES, ServiceItem } from '@/lib/services';
 import { getDisplayTime, parseBrazilDateTime } from '@/lib/timezone';
 import { checkDayStatus } from '@/lib/holidays';
 import { LunchBreakControl } from '@/components/LunchBreakControl';
+import { WalkInTimePicker } from '@/components/WalkInTimePicker';
+import { getDefaultWalkInSlot } from '@/lib/studio-slots';
 
 export default function AgendaPage() {
   const { data: session } = useSession();
@@ -452,8 +454,10 @@ export default function AgendaPage() {
           />
 
           <button
+            type="button"
             onClick={() => {
               setCreateErrorMsg("");
+              setNewTime(getDefaultWalkInSlot(selectedDate));
               setIsModalOpen(true);
             }}
             className="px-4 py-2.5 bg-gradient-to-r from-[#F5D799] via-[#DFBA73] to-[#B88B38] text-black font-bold hover:brightness-110 rounded-xl text-xs uppercase tracking-wider transition-all flex items-center gap-2 shadow-lg shadow-[#DFBA73]/20 cursor-pointer"
@@ -1007,19 +1011,13 @@ export default function AgendaPage() {
                   </select>
                 </div>
 
-                {/* Horário */}
-                <div>
-                  <label className="block text-gray-400 text-xs uppercase tracking-wider mb-1 font-mono">
-                    Horário
-                  </label>
-                  <input 
-                    required 
-                    type="time" 
-                    value={newTime}
-                    onChange={(e) => setNewTime(e.target.value)}
-                    className="w-full bg-white/[0.03] border border-white/10 rounded-xl py-2.5 px-4 text-white text-sm focus:border-[#DFBA73] focus:outline-none font-mono [&::-webkit-calendar-picker-indicator]:invert"
-                  />
-                </div>
+                {/* Data e Horário (Bloqueia na Agenda) */}
+                <WalkInTimePicker
+                  date={selectedDate}
+                  time={newTime}
+                  onDateChange={setSelectedDate}
+                  onTimeChange={setNewTime}
+                />
 
                 <button
                   type="submit"
