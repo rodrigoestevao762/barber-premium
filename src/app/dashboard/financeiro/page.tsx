@@ -535,124 +535,186 @@ export default function FinanceiroPage() {
       {viewMode === "monthly" ? (
         <>
           {/* BENTO GRID MENSAL */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
-            {/* Card 1: Produção Bruta do Mês */}
-            <div className="bg-[#080A0E] border border-white/10 rounded-3xl p-6 relative overflow-hidden group hover:border-[#DFBA73]/40 transition-all">
-              <div className="absolute top-0 right-0 w-28 h-28 bg-[#DFBA73]/5 rounded-full blur-2xl pointer-events-none" />
-              <div className="flex items-center justify-between mb-4">
-                <span className="text-[10px] font-mono uppercase tracking-widest text-gray-400">
-                  Produção Bruta do Mês
-                </span>
-                <div className="w-9 h-9 rounded-xl bg-[#DFBA73]/10 border border-[#DFBA73]/20 flex items-center justify-center text-[#DFBA73]">
-                  <ArrowUpRight className="w-4 h-4" />
-                </div>
-              </div>
-              <h3 className="text-3xl font-serif text-white tracking-tight mb-1">
-                {formatBRL(monthlyGross)}
-              </h3>
-              <p className="text-xs text-gray-400 font-light">
-                {monthlyCompleted}{" "}
-                {monthlyCompleted === 1 ? "atendimento concluído" : "atendimentos concluídos"} no mês.
-              </p>
-            </div>
+          {(() => {
+            const costRatio =
+              monthlyGross > 0
+                ? Math.min(100, (monthlyExpensesTotal / monthlyGross) * 100)
+                : monthlyExpensesTotal > 0
+                ? 100
+                : 0;
+            const retentionRatio = monthlyGross > 0 ? Math.max(0, 100 - costRatio) : monthlyNet >= 0 ? 100 : 0;
+            const isNetPositive = monthlyNet >= 0;
 
-            {/* Card 2: Despesa Mensal */}
-            <div className="bg-[#080A0E] border border-white/10 rounded-3xl p-6 relative overflow-hidden group hover:border-rose-500/30 transition-all">
-              <div className="absolute top-0 right-0 w-28 h-28 bg-rose-500/5 rounded-full blur-2xl pointer-events-none" />
-              <div className="flex items-center justify-between mb-4">
-                <span className="text-[10px] font-mono uppercase tracking-widest text-rose-400/90 font-medium">
-                  Despesa Mensal Total
-                </span>
-                <div className="w-9 h-9 rounded-xl bg-rose-500/10 border border-rose-500/20 flex items-center justify-center text-rose-400">
-                  <TrendingDown className="w-4 h-4" />
+            return (
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
+                {/* Card 1: Produção Bruta do Mês */}
+                <div className="group relative overflow-hidden rounded-3xl bg-gradient-to-b from-[#0E1117] via-[#090B10] to-[#06070A] border border-white/10 hover:border-[#DFBA73]/45 p-6 shadow-[0_20px_50px_-12px_rgba(0,0,0,0.85),inset_0_1px_0_0_rgba(255,255,255,0.06)] hover:-translate-y-0.5 transition-all duration-300 flex flex-col justify-between">
+                  <div className="absolute inset-x-0 top-0 h-[1.5px] bg-gradient-to-r from-transparent via-[#DFBA73]/60 to-transparent pointer-events-none" />
+                  <div className="absolute -top-12 -right-12 w-28 h-28 bg-[#DFBA73]/10 rounded-full blur-2xl pointer-events-none" />
+                  <div>
+                    <div className="flex items-center justify-between mb-4">
+                      <span className="text-[10px] font-mono uppercase tracking-widest text-gray-400">
+                        Produção Bruta do Mês
+                      </span>
+                      <div className="w-9 h-9 rounded-xl bg-[#DFBA73]/15 border border-[#DFBA73]/30 flex items-center justify-center text-[#DFBA73] shadow-sm shadow-[#DFBA73]/10">
+                        <ArrowUpRight className="w-4 h-4" />
+                      </div>
+                    </div>
+                    <h3 className="text-3xl font-serif font-bold text-white tabular-nums tracking-tight">
+                      {formatBRL(monthlyGross)}
+                    </h3>
+                  </div>
+                  <div className="mt-4 pt-3 border-t border-white/[0.06] flex items-center justify-between text-[11px] font-mono text-gray-400">
+                    <span>
+                      {monthlyCompleted}{" "}
+                      {monthlyCompleted === 1 ? "atendimento" : "atendimentos"}
+                    </span>
+                    <span className="text-[#F5D799] font-semibold">100% Studio</span>
+                  </div>
                 </div>
-              </div>
-              <h3 className="text-3xl font-serif text-rose-400 tracking-tight mb-1">
-                {monthlyExpensesTotal > 0 ? `- ${formatBRL(monthlyExpensesTotal)}` : "R$ 0,00"}
-              </h3>
-              <p className="text-xs text-gray-400 font-light">
-                {monthlyExpensesList.length}{" "}
-                {monthlyExpensesList.length === 1 ? "gasto registrado" : "gastos registrados"} no mês.
-              </p>
-            </div>
 
-            {/* Card 3: Produção Líquida / Lucro do Mês */}
-            <div
-              className={`bg-gradient-to-br from-[#080A0E] via-[#050608] rounded-3xl p-6 relative overflow-hidden transition-all ${
-                monthlyNet >= 0
-                  ? "to-emerald-950/20 border border-emerald-500/30 hover:border-emerald-500/50"
-                  : "to-rose-950/20 border border-rose-500/30 hover:border-rose-500/50"
-              }`}
-            >
-              <div
-                className={`absolute top-0 right-0 w-32 h-32 rounded-full blur-2xl pointer-events-none ${
-                  monthlyNet >= 0 ? "bg-emerald-500/10" : "bg-rose-500/10"
-                }`}
-              />
-              <div className="flex items-center justify-between mb-4">
-                <span
-                  className={`text-[10px] font-mono uppercase tracking-widest font-semibold ${
-                    monthlyNet >= 0 ? "text-emerald-400" : "text-rose-400"
-                  }`}
-                >
-                  Produção Líquida do Mês
-                </span>
+                {/* Card 2: Despesa Mensal */}
+                <div className="group relative overflow-hidden rounded-3xl bg-gradient-to-b from-[#130B0F] via-[#0B080A] to-[#060608] border border-rose-500/20 hover:border-rose-500/45 p-6 shadow-[0_20px_50px_-12px_rgba(0,0,0,0.85),inset_0_1px_0_0_rgba(255,255,255,0.05)] hover:-translate-y-0.5 transition-all duration-300 flex flex-col justify-between">
+                  <div className="absolute inset-x-0 top-0 h-[1.5px] bg-gradient-to-r from-transparent via-rose-400/65 to-transparent pointer-events-none" />
+                  <div className="absolute -top-12 -right-12 w-28 h-28 bg-rose-500/10 rounded-full blur-2xl pointer-events-none" />
+                  <div>
+                    <div className="flex items-center justify-between mb-4">
+                      <span className="text-[10px] font-mono uppercase tracking-widest text-rose-300 font-semibold">
+                        Despesa Mensal Total
+                      </span>
+                      <div className="w-9 h-9 rounded-xl bg-rose-500/15 border border-rose-500/30 flex items-center justify-center text-rose-400">
+                        <TrendingDown className="w-4 h-4" />
+                      </div>
+                    </div>
+                    <h3 className="text-3xl font-serif font-bold text-rose-400 tabular-nums tracking-tight">
+                      {monthlyExpensesTotal > 0 ? `- ${formatBRL(monthlyExpensesTotal)}` : "R$ 0,00"}
+                    </h3>
+                  </div>
+                  <div className="mt-4 pt-3 border-t border-rose-500/10 space-y-2">
+                    <div className="flex items-center justify-between text-[11px] font-mono text-gray-400">
+                      <span>
+                        {monthlyExpensesList.length}{" "}
+                        {monthlyExpensesList.length === 1 ? "gasto" : "gastos"}
+                      </span>
+                      <span className="text-rose-300 font-semibold">{costRatio.toFixed(1)}% do bruto</span>
+                    </div>
+                    <div className="h-1.5 rounded-full bg-white/[0.06] overflow-hidden">
+                      <div
+                        className="h-full rounded-full bg-gradient-to-r from-rose-500 to-amber-400 transition-all duration-500"
+                        style={{ width: `${costRatio}%` }}
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                {/* Card 3: Produção Líquida / Lucro do Mês */}
                 <div
-                  className={`w-9 h-9 rounded-xl flex items-center justify-center border ${
-                    monthlyNet >= 0
-                      ? "bg-emerald-500/20 border-emerald-500/40 text-emerald-300"
-                      : "bg-rose-500/20 border-rose-500/40 text-rose-300"
+                  className={`group relative overflow-hidden rounded-3xl p-6 shadow-[0_20px_50px_-12px_rgba(0,0,0,0.85),inset_0_1px_0_0_rgba(255,255,255,0.08)] hover:-translate-y-0.5 transition-all duration-300 flex flex-col justify-between border ${
+                    isNetPositive
+                      ? "bg-gradient-to-br from-[#0B1713] via-[#080E0C] to-[#060807] border-emerald-500/35 hover:border-emerald-400/60"
+                      : "bg-gradient-to-br from-[#190B10] via-[#0E070A] to-[#060608] border-rose-500/35 hover:border-rose-400/60"
                   }`}
                 >
-                  <Wallet className="w-4 h-4" />
+                  <div
+                    className={`absolute inset-x-0 top-0 h-[2px] bg-gradient-to-r from-transparent to-transparent pointer-events-none ${
+                      isNetPositive ? "via-emerald-400/80" : "via-rose-400/80"
+                    }`}
+                  />
+                  <div
+                    className={`absolute -top-12 -right-12 w-32 h-32 rounded-full blur-2xl pointer-events-none ${
+                      isNetPositive ? "bg-emerald-500/15" : "bg-rose-500/15"
+                    }`}
+                  />
+                  <div>
+                    <div className="flex items-center justify-between mb-4">
+                      <span
+                        className={`text-[10px] font-mono uppercase tracking-widest font-bold ${
+                          isNetPositive ? "text-emerald-300" : "text-rose-300"
+                        }`}
+                      >
+                        Produção Líquida do Mês
+                      </span>
+                      <div
+                        className={`w-9 h-9 rounded-xl flex items-center justify-center border ${
+                          isNetPositive
+                            ? "bg-emerald-500/20 border-emerald-400/40 text-emerald-300"
+                            : "bg-rose-500/20 border-rose-400/40 text-rose-300"
+                        }`}
+                      >
+                        <Wallet className="w-4 h-4" />
+                      </div>
+                    </div>
+                    <h3
+                      className={`text-3xl font-serif font-bold tabular-nums tracking-tight ${
+                        isNetPositive ? "text-emerald-300" : "text-rose-300"
+                      }`}
+                    >
+                      {formatBRL(monthlyNet)}
+                    </h3>
+                  </div>
+                  <div className="mt-4 pt-3 border-t border-white/[0.08] space-y-2">
+                    <div className="flex items-center justify-between text-[11px] font-mono">
+                      <span className="text-gray-400">Margem real</span>
+                      <span
+                        className={`px-2 py-0.5 rounded-full font-bold ${
+                          isNetPositive
+                            ? "bg-emerald-500/20 text-emerald-300 border border-emerald-500/30"
+                            : "bg-rose-500/20 text-rose-300 border border-rose-500/30"
+                        }`}
+                      >
+                        {monthlyMargin.toFixed(1)}%
+                      </span>
+                    </div>
+                    <div className="h-1.5 rounded-full bg-white/[0.06] overflow-hidden">
+                      <div
+                        className={`h-full rounded-full transition-all duration-500 ${
+                          isNetPositive
+                            ? "bg-gradient-to-r from-emerald-500 to-[#DFBA73]"
+                            : "bg-rose-500"
+                        }`}
+                        style={{ width: `${retentionRatio}%` }}
+                      />
+                    </div>
+                  </div>
                 </div>
-              </div>
-              <h3
-                className={`text-3xl font-serif tracking-tight mb-1 ${
-                  monthlyNet >= 0 ? "text-emerald-400" : "text-rose-400"
-                }`}
-              >
-                {formatBRL(monthlyNet)}
-              </h3>
-              <p
-                className={`text-xs font-light ${
-                  monthlyNet >= 0 ? "text-emerald-400/75" : "text-rose-400/75"
-                }`}
-              >
-                Margem líquida: {monthlyMargin.toFixed(1)}% (Bruto − Despesas).
-              </p>
-            </div>
 
-            {/* Card 4: Ticket Médio & Previsto */}
-            <div className="bg-[#080A0E] border border-white/10 rounded-3xl p-6 relative overflow-hidden group hover:border-[#DFBA73]/40 transition-all">
-              <div className="absolute top-0 right-0 w-28 h-28 bg-[#DFBA73]/5 rounded-full blur-2xl pointer-events-none" />
-              <div className="flex items-center justify-between mb-4">
-                <span className="text-[10px] font-mono uppercase tracking-widest text-gray-400">
-                  Ticket Médio do Mês
-                </span>
-                <div className="w-9 h-9 rounded-xl bg-white/5 border border-white/10 flex items-center justify-center text-[#DFBA73]">
-                  <TrendingUp className="w-4 h-4" />
+                {/* Card 4: Ticket Médio & Previsto */}
+                <div className="group relative overflow-hidden rounded-3xl bg-gradient-to-b from-[#0E1117] via-[#090B10] to-[#06070A] border border-white/10 hover:border-[#DFBA73]/45 p-6 shadow-[0_20px_50px_-12px_rgba(0,0,0,0.85),inset_0_1px_0_0_rgba(255,255,255,0.06)] hover:-translate-y-0.5 transition-all duration-300 flex flex-col justify-between">
+                  <div className="absolute inset-x-0 top-0 h-[1.5px] bg-gradient-to-r from-transparent via-[#DFBA73]/50 to-transparent pointer-events-none" />
+                  <div className="absolute -top-12 -right-12 w-28 h-28 bg-[#DFBA73]/8 rounded-full blur-2xl pointer-events-none" />
+                  <div>
+                    <div className="flex items-center justify-between mb-4">
+                      <span className="text-[10px] font-mono uppercase tracking-widest text-gray-400">
+                        Ticket Médio do Mês
+                      </span>
+                      <div className="w-9 h-9 rounded-xl bg-white/5 border border-white/10 flex items-center justify-center text-[#DFBA73]">
+                        <TrendingUp className="w-4 h-4" />
+                      </div>
+                    </div>
+                    <h3 className="text-3xl font-serif font-bold text-white tabular-nums tracking-tight">
+                      {formatBRL(monthlyTicket)}
+                    </h3>
+                  </div>
+                  <div className="mt-4 pt-3 border-t border-white/[0.06] flex items-center justify-between text-[11px] font-mono">
+                    <span className="text-gray-400">Agenda futura</span>
+                    <span className={monthlyPending > 0 ? "text-[#F5D799] font-semibold" : "text-gray-500"}>
+                      {monthlyPending > 0 ? formatBRL(monthlyPending) : "R$ 0,00"}
+                    </span>
+                  </div>
                 </div>
               </div>
-              <h3 className="text-3xl font-serif text-white tracking-tight mb-1">
-                {formatBRL(monthlyTicket)}
-              </h3>
-              <p className="text-xs text-gray-400 font-light">
-                {monthlyPending > 0
-                  ? `Previsto na agenda: ${formatBRL(monthlyPending)}`
-                  : "Média por cliente atendido no mês."}
-              </p>
-            </div>
-          </div>
+            );
+          })()}
 
           {/* RESUMO POR CATEGORIA DE DESPESA + RESULTADO DO MÊS */}
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
             {/* Balanço Consolidado do Studio no Mês */}
-            <div className="lg:col-span-2 bg-gradient-to-r from-[#080A0E] via-[#0b0e14] to-[#080A0E] border border-[#DFBA73]/30 rounded-3xl p-6 md:p-8 relative overflow-hidden shadow-xl">
-              <div className="absolute top-0 right-0 w-72 h-72 bg-[#DFBA73]/5 rounded-full blur-3xl pointer-events-none" />
+            <div className="lg:col-span-2 bg-gradient-to-br from-[#0F1218] via-[#090B10] to-[#06070A] border border-[#DFBA73]/35 rounded-3xl p-6 md:p-8 relative overflow-hidden shadow-[0_24px_60px_-15px_rgba(0,0,0,0.85),inset_0_1px_0_0_rgba(255,255,255,0.06)]">
+              <div className="absolute inset-x-0 top-0 h-[2px] bg-gradient-to-r from-transparent via-[#F5D799]/80 to-transparent pointer-events-none" />
+              <div className="absolute top-0 right-0 w-72 h-72 bg-[#DFBA73]/8 rounded-full blur-3xl pointer-events-none" />
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6 relative z-10">
                 <div className="flex items-center gap-4">
-                  <div className="relative w-14 h-14 rounded-2xl overflow-hidden border-2 border-[#DFBA73] shadow-lg shadow-[#DFBA73]/20 shrink-0">
+                  <div className="relative w-14 h-14 rounded-2xl overflow-hidden border-2 border-[#DFBA73] shadow-lg shadow-[#DFBA73]/25 shrink-0">
                     <Image
                       src={BARBERS[0].avatar}
                       alt="Lucas Augusto"
@@ -662,7 +724,7 @@ export default function FinanceiroPage() {
                     />
                   </div>
                   <div>
-                    <h3 className="text-xl font-serif text-white">
+                    <h3 className="text-xl font-serif text-white capitalize">
                       Fechamento Parcial • {summary?.monthLabel || selectedMonth}
                     </h3>
                     <p className="text-xs text-[#F5D799] font-mono mt-0.5">
@@ -672,33 +734,35 @@ export default function FinanceiroPage() {
                 </div>
 
                 {monthlyPending > 0 && (
-                  <div className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-[#DFBA73]/10 border border-[#DFBA73]/30 text-xs font-mono text-[#F5D799] self-start sm:self-center">
+                  <div className="flex items-center gap-2 px-3.5 py-2 rounded-xl bg-[#DFBA73]/10 border border-[#DFBA73]/35 text-xs font-mono text-[#F5D799] self-start sm:self-center shadow-sm">
                     <Clock className="w-3.5 h-3.5 text-[#DFBA73]" />
-                    <span>Agenda futura: {formatBRL(monthlyPending)}</span>
+                    <span>Previsto: {formatBRL(monthlyPending)}</span>
                   </div>
                 )}
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 relative z-10">
-                <div className="p-4 rounded-2xl bg-white/[0.03] border border-white/10">
+                <div className="p-4 rounded-2xl bg-white/[0.03] border border-white/10 shadow-[inset_0_1px_0_0_rgba(255,255,255,0.04)]">
                   <span className="text-[10px] font-mono uppercase tracking-wider text-gray-400">
                     (+) Produção Bruta
                   </span>
-                  <p className="text-2xl font-serif text-white mt-1">{formatBRL(monthlyGross)}</p>
+                  <p className="text-2xl font-serif font-bold text-white tabular-nums mt-1.5">
+                    {formatBRL(monthlyGross)}
+                  </p>
                 </div>
-                <div className="p-4 rounded-2xl bg-rose-500/[0.05] border border-rose-500/20">
+                <div className="p-4 rounded-2xl bg-rose-500/[0.06] border border-rose-500/25 shadow-[inset_0_1px_0_0_rgba(255,255,255,0.03)]">
                   <span className="text-[10px] font-mono uppercase tracking-wider text-rose-300">
                     (-) Gastos no Mês
                   </span>
-                  <p className="text-2xl font-serif text-rose-400 mt-1">
-                    {formatBRL(monthlyExpensesTotal)}
+                  <p className="text-2xl font-serif font-bold text-rose-400 tabular-nums mt-1.5">
+                    {monthlyExpensesTotal > 0 ? `- ${formatBRL(monthlyExpensesTotal)}` : "R$ 0,00"}
                   </p>
                 </div>
                 <div
-                  className={`p-4 rounded-2xl border ${
+                  className={`p-4 rounded-2xl border shadow-[inset_0_1px_0_0_rgba(255,255,255,0.06)] ${
                     monthlyNet >= 0
-                      ? "bg-emerald-500/10 border-emerald-500/30"
-                      : "bg-rose-500/10 border-rose-500/30"
+                      ? "bg-emerald-500/12 border-emerald-500/35"
+                      : "bg-rose-500/12 border-rose-500/35"
                   }`}
                 >
                   <span
@@ -709,7 +773,7 @@ export default function FinanceiroPage() {
                     (=) Lucro Líquido
                   </span>
                   <p
-                    className={`text-2xl font-serif font-bold mt-1 ${
+                    className={`text-2xl font-serif font-bold tabular-nums mt-1.5 ${
                       monthlyNet >= 0 ? "text-emerald-300" : "text-rose-300"
                     }`}
                   >
@@ -720,15 +784,17 @@ export default function FinanceiroPage() {
             </div>
 
             {/* Distribuição de Despesas por Categoria */}
-            <div className="bg-[#080A0E] border border-white/10 rounded-3xl p-6 space-y-4">
-              <div className="flex items-center justify-between">
+            <div className="relative overflow-hidden bg-gradient-to-b from-[#0E1117] via-[#090B10] to-[#06070A] border border-white/10 rounded-3xl p-6 space-y-5 shadow-[0_20px_50px_-12px_rgba(0,0,0,0.85),inset_0_1px_0_0_rgba(255,255,255,0.05)]">
+              <div className="flex items-center justify-between border-b border-white/[0.06] pb-3">
                 <h3 className="text-base font-serif text-white flex items-center gap-2">
                   <BarChart3 className="w-4 h-4 text-[#DFBA73]" /> Gastos por Categoria
                 </h3>
-                <span className="text-[10px] font-mono text-gray-400 uppercase">Mês</span>
+                <span className="text-[10px] font-mono text-[#DFBA73] bg-[#DFBA73]/10 border border-[#DFBA73]/25 px-2 py-0.5 rounded-full uppercase">
+                  Mês
+                </span>
               </div>
 
-              <div className="space-y-3.5">
+              <div className="space-y-4">
                 {(["INSUMOS", "FIXO", "OUTROS"] as ExpenseCategory[]).map((cat) => {
                   const val = catTotals[cat] || 0;
                   const pct =
@@ -737,13 +803,14 @@ export default function FinanceiroPage() {
                     <div key={cat} className="space-y-1.5">
                       <div className="flex items-center justify-between text-xs">
                         <span className="text-gray-300 font-light">{CATEGORY_LABELS[cat]}</span>
-                        <span className="font-mono text-white font-medium">
-                          {formatBRL(val)} <span className="text-gray-500">({pct}%)</span>
+                        <span className="font-mono text-white font-semibold tabular-nums">
+                          {formatBRL(val)}{" "}
+                          <span className="text-gray-500 font-normal">({pct}%)</span>
                         </span>
                       </div>
-                      <div className="h-2 rounded-full bg-white/5 overflow-hidden">
+                      <div className="h-2 rounded-full bg-white/[0.06] overflow-hidden">
                         <div
-                          className="h-full rounded-full bg-gradient-to-r from-rose-500 to-amber-400 transition-all duration-500"
+                          className="h-full rounded-full bg-gradient-to-r from-rose-500 via-rose-400 to-[#DFBA73] transition-all duration-500"
                           style={{ width: `${pct}%` }}
                         />
                       </div>
@@ -755,25 +822,25 @@ export default function FinanceiroPage() {
           </div>
 
           {/* PRODUÇÃO DIÁRIA DO MÊS (TODOS OS DIAS 01 ATÉ O FINAL + TOTAL DO MÊS) */}
-          <div className="bg-[#080A0E] border border-white/10 rounded-3xl p-5 sm:p-8 space-y-5">
-            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-white/5 pb-4">
+          <div className="relative overflow-hidden bg-gradient-to-b from-[#0C0F14] via-[#080A0E] to-[#06070A] border border-white/10 rounded-3xl p-5 sm:p-8 space-y-5 shadow-[0_24px_60px_-15px_rgba(0,0,0,0.85),inset_0_1px_0_0_rgba(255,255,255,0.05)]">
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-white/[0.08] pb-4">
               <div>
                 <h3 className="text-xl font-serif text-white flex items-center gap-2">
                   <Calendar className="w-5 h-5 text-[#DFBA73]" /> Faturamento Dia a Dia •{" "}
-                  <span className="capitalize">{summary?.monthLabel || selectedMonth}</span>
+                  <span className="capitalize text-[#F5D799]">{summary?.monthLabel || selectedMonth}</span>
                 </h3>
                 <p className="text-xs text-gray-400 mt-1 font-light">
-                  Acompanhamento completo do dia 01 ao último dia do mês com acumulado progressivo até o total final.
+                  Do dia 01 ao último dia do mês com evolução acumulada até o fechamento final. Toque em um dia para detalhar.
                 </p>
               </div>
 
-              <div className="inline-flex bg-white/[0.03] border border-white/10 rounded-xl p-1 self-start md:self-center">
+              <div className="inline-flex bg-[#050608] border border-white/10 rounded-xl p-1 self-start md:self-center">
                 <button
                   type="button"
                   onClick={() => setOnlyActiveDays(false)}
                   className={`px-3 py-1.5 rounded-lg text-[11px] font-mono uppercase tracking-wider transition-all cursor-pointer ${
                     !onlyActiveDays
-                      ? "bg-[#DFBA73] text-black font-bold"
+                      ? "bg-gradient-to-r from-[#F5D799] to-[#DFBA73] text-black font-bold shadow-sm"
                       : "text-gray-400 hover:text-white"
                   }`}
                 >
@@ -784,7 +851,7 @@ export default function FinanceiroPage() {
                   onClick={() => setOnlyActiveDays(true)}
                   className={`px-3 py-1.5 rounded-lg text-[11px] font-mono uppercase tracking-wider transition-all cursor-pointer ${
                     onlyActiveDays
-                      ? "bg-[#DFBA73] text-black font-bold"
+                      ? "bg-gradient-to-r from-[#F5D799] to-[#DFBA73] text-black font-bold shadow-sm"
                       : "text-gray-400 hover:text-white"
                   }`}
                 >
@@ -798,10 +865,14 @@ export default function FinanceiroPage() {
               const visibleDays = onlyActiveDays
                 ? dailyBreakdown.filter((d) => d.completedCount > 0 || d.expenses > 0)
                 : dailyBreakdown;
+              const maxDayGross = Math.max(
+                1,
+                ...dailyBreakdown.map((d) => Number(d.grossRevenue || 0))
+              );
 
               if (visibleDays.length === 0) {
                 return (
-                  <div className="text-center py-10 text-gray-500 font-light italic bg-white/[0.01] rounded-2xl border border-dashed border-white/5">
+                  <div className="text-center py-12 text-gray-500 font-light italic bg-white/[0.01] rounded-2xl border border-dashed border-white/5">
                     Nenhuma movimentação financeira registrada neste mês.
                   </div>
                 );
@@ -809,9 +880,24 @@ export default function FinanceiroPage() {
 
               return (
                 <div className="space-y-2">
+                  {/* Cabeçalho das colunas no Desktop */}
+                  <div className="hidden lg:grid lg:grid-cols-12 gap-4 px-4 pb-1 text-[10px] font-mono uppercase tracking-widest text-gray-500">
+                    <div className="col-span-5">Data & Movimento</div>
+                    <div className="col-span-7 grid grid-cols-4 gap-4 text-right">
+                      <span>Faturado</span>
+                      <span>Despesa</span>
+                      <span>Líquido</span>
+                      <span className="text-[#DFBA73]/80">Acumulado</span>
+                    </div>
+                  </div>
+
                   {visibleDays.map((day) => {
                     const isToday = day.date === todayStr;
                     const hasActivity = day.completedCount > 0 || day.expenses > 0;
+                    const dayStrengthPct =
+                      day.grossRevenue > 0
+                        ? Math.max(6, Math.round((day.grossRevenue / maxDayGross) * 100))
+                        : 0;
 
                     return (
                       <button
@@ -821,27 +907,27 @@ export default function FinanceiroPage() {
                           handleSelectDailyDate(day.date);
                           setViewMode("daily");
                         }}
-                        className={`w-full text-left flex flex-col lg:flex-row lg:items-center justify-between gap-3 p-3.5 sm:p-4 rounded-2xl border transition-all cursor-pointer ${
+                        className={`group w-full text-left grid grid-cols-1 lg:grid-cols-12 lg:items-center gap-3 lg:gap-4 p-3.5 sm:p-4 rounded-2xl border transition-all duration-200 cursor-pointer relative overflow-hidden ${
                           isToday
-                            ? "bg-[#DFBA73]/[0.08] border-[#DFBA73]/50 hover:border-[#DFBA73]"
+                            ? "bg-gradient-to-r from-[#DFBA73]/[0.12] via-[#DFBA73]/[0.05] to-transparent border-[#DFBA73]/55 hover:border-[#DFBA73] shadow-[0_0_25px_rgba(223,186,115,0.08)]"
                             : hasActivity
                             ? "bg-white/[0.03] border-white/10 hover:bg-white/[0.06] hover:border-[#DFBA73]/40"
-                            : "bg-white/[0.01] border-white/5 opacity-70 hover:opacity-100 hover:border-white/20"
+                            : "bg-white/[0.01] border-white/[0.04] opacity-65 hover:opacity-100 hover:border-white/15"
                         }`}
                       >
-                        <div className="flex items-center gap-3">
+                        <div className="lg:col-span-5 flex items-center gap-3 min-w-0">
                           <div
-                            className={`px-2.5 py-1.5 rounded-xl font-mono text-xs font-bold shrink-0 border ${
+                            className={`px-2.5 py-1.5 rounded-xl font-mono text-xs font-bold shrink-0 border tabular-nums ${
                               isToday
-                                ? "bg-[#DFBA73] text-black border-[#DFBA73]"
+                                ? "bg-gradient-to-br from-[#F5D799] to-[#DFBA73] text-black border-[#DFBA73] shadow-sm shadow-[#DFBA73]/30"
                                 : hasActivity
-                                ? "bg-[#DFBA73]/10 text-[#F5D799] border-[#DFBA73]/30"
+                                ? "bg-[#DFBA73]/12 text-[#F5D799] border-[#DFBA73]/30"
                                 : "bg-white/5 text-gray-400 border-white/10"
                             }`}
                           >
                             {formatShortDate(day.date)}
                           </div>
-                          <div>
+                          <div className="min-w-0 flex-1">
                             <div className="flex items-center gap-2 flex-wrap">
                               <span className="text-sm text-white font-medium">
                                 {day.dayOfWeek || formatFullDate(day.date)}
@@ -850,7 +936,7 @@ export default function FinanceiroPage() {
                                 {formatFullDate(day.date)}
                               </span>
                               {isToday && (
-                                <span className="text-[9px] font-mono uppercase tracking-wider px-2 py-0.5 rounded-full bg-[#DFBA73]/25 text-[#F5D799] border border-[#DFBA73]/40 font-bold">
+                                <span className="text-[9px] font-mono uppercase tracking-wider px-2 py-0.5 rounded-full bg-[#DFBA73]/25 text-[#F5D799] border border-[#DFBA73]/50 font-bold">
                                   Hoje
                                 </span>
                               )}
@@ -860,33 +946,61 @@ export default function FinanceiroPage() {
                                 </span>
                               )}
                             </div>
-                            <p className="text-[11px] text-gray-400 font-mono mt-0.5">
-                              {day.completedCount > 0
-                                ? `${day.completedCount} ${
-                                    day.completedCount === 1 ? "atendimento concluído" : "atendimentos concluídos"
-                                  }`
-                                : day.expenses > 0
-                                ? "Somente despesa lançada"
-                                : "Sem movimento registrado"}
-                            </p>
+                            <div className="flex items-center gap-2.5 mt-1">
+                              <p className="text-[11px] text-gray-400 font-mono truncate">
+                                {day.completedCount > 0
+                                  ? `${day.completedCount} ${
+                                      day.completedCount === 1
+                                        ? "atendimento concluído"
+                                        : "atendimentos concluídos"
+                                    }`
+                                  : day.expenses > 0
+                                  ? "Somente despesa lançada"
+                                  : day.isSunday
+                                  ? "Studio fechado"
+                                  : "Sem movimento"}
+                              </p>
+                              {dayStrengthPct > 0 && (
+                                <span className="hidden sm:inline-block w-16 h-1 rounded-full bg-white/10 overflow-hidden shrink-0">
+                                  <span
+                                    className="block h-full rounded-full bg-gradient-to-r from-[#DFBA73] to-emerald-400"
+                                    style={{ width: `${dayStrengthPct}%` }}
+                                  />
+                                </span>
+                              )}
+                            </div>
                           </div>
                         </div>
 
-                        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 lg:gap-6 text-xs font-mono pt-2 lg:pt-0 border-t lg:border-t-0 border-white/5">
+                        <div className="lg:col-span-7 grid grid-cols-2 sm:grid-cols-4 gap-3 lg:gap-4 text-xs font-mono tabular-nums pt-2.5 lg:pt-0 border-t lg:border-t-0 border-white/[0.06] lg:text-right">
                           <div>
-                            <span className="text-[9px] text-gray-500 block uppercase">Faturado (Dia)</span>
-                            <span className={day.grossRevenue > 0 ? "text-white font-semibold" : "text-gray-500"}>
+                            <span className="lg:hidden text-[9px] text-gray-500 block uppercase">
+                              Faturado
+                            </span>
+                            <span
+                              className={
+                                day.grossRevenue > 0 ? "text-white font-semibold" : "text-gray-500"
+                              }
+                            >
                               {formatBRL(day.grossRevenue)}
                             </span>
                           </div>
                           <div>
-                            <span className="text-[9px] text-gray-500 block uppercase">Despesa (Dia)</span>
-                            <span className={day.expenses > 0 ? "text-rose-400 font-semibold" : "text-gray-500"}>
+                            <span className="lg:hidden text-[9px] text-gray-500 block uppercase">
+                              Despesa
+                            </span>
+                            <span
+                              className={
+                                day.expenses > 0 ? "text-rose-400 font-semibold" : "text-gray-500"
+                              }
+                            >
                               {day.expenses > 0 ? `- ${formatBRL(day.expenses)}` : "R$ 0,00"}
                             </span>
                           </div>
                           <div>
-                            <span className="text-[9px] text-gray-500 block uppercase">Líquido (Dia)</span>
+                            <span className="lg:hidden text-[9px] text-gray-500 block uppercase">
+                              Líquido
+                            </span>
                             <span
                               className={`font-bold ${
                                 day.netProfit > 0
@@ -899,13 +1013,16 @@ export default function FinanceiroPage() {
                               {formatBRL(day.netProfit)}
                             </span>
                           </div>
-                          <div className="sm:text-right">
-                            <span className="text-[9px] text-[#DFBA73]/80 block uppercase">
-                              Acumulado Mês
-                            </span>
-                            <span className="text-[#F5D799] font-bold">
-                              {formatBRL(day.accumulatedGross ?? 0)}
-                            </span>
+                          <div className="sm:text-right flex items-center sm:justify-end gap-1.5">
+                            <div>
+                              <span className="lg:hidden text-[9px] text-[#DFBA73]/80 block uppercase">
+                                Acumulado Mês
+                              </span>
+                              <span className="text-[#F5D799] font-bold">
+                                {formatBRL(day.accumulatedGross ?? 0)}
+                              </span>
+                            </div>
+                            <ChevronRight className="hidden lg:inline-block w-3.5 h-3.5 text-gray-600 group-hover:text-[#DFBA73] group-hover:translate-x-0.5 transition-all shrink-0" />
                           </div>
                         </div>
                       </button>
@@ -913,15 +1030,21 @@ export default function FinanceiroPage() {
                   })}
 
                   {/* LINHA FINAL DE FECHAMENTO: TOTAL DO MÊS */}
-                  <div className="mt-4 p-4 sm:p-5 rounded-2xl bg-gradient-to-r from-[#DFBA73]/20 via-[#080A0E] to-emerald-950/30 border-2 border-[#DFBA73]/50 flex flex-col lg:flex-row lg:items-center justify-between gap-4 shadow-lg">
+                  <div className="relative overflow-hidden mt-5 p-5 sm:p-6 rounded-2xl bg-gradient-to-r from-[#DFBA73]/20 via-[#0E1217] to-emerald-950/35 border border-[#DFBA73]/60 flex flex-col lg:flex-row lg:items-center justify-between gap-4 shadow-[0_20px_50px_-15px_rgba(223,186,115,0.25),inset_0_1px_0_0_rgba(245,215,153,0.25)]">
+                    <div className="absolute inset-x-0 top-0 h-[2px] bg-gradient-to-r from-transparent via-[#F5D799] to-transparent pointer-events-none" />
                     <div>
-                      <span className="text-[10px] font-mono uppercase tracking-widest text-[#F5D799] font-bold">
-                        Total Final do Mês • 01 a {String(dailyBreakdown.length || 30).padStart(2, "0")}
-                      </span>
-                      <h4 className="text-lg font-serif text-white mt-0.5 capitalize">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className="text-[10px] font-mono uppercase tracking-widest text-[#F5D799] font-bold">
+                          Total Final do Mês • 01 a {String(dailyBreakdown.length || 30).padStart(2, "0")}
+                        </span>
+                        <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/35 font-bold">
+                          Margem {monthlyMargin.toFixed(1)}%
+                        </span>
+                      </div>
+                      <h4 className="text-xl font-serif text-white mt-1 capitalize">
                         {summary?.monthLabel || selectedMonth}
                       </h4>
-                      <p className="text-[11px] text-gray-300 font-mono">
+                      <p className="text-[11px] text-gray-300 font-mono mt-0.5">
                         {monthlyCompleted}{" "}
                         {monthlyCompleted === 1 ? "atendimento concluído" : "atendimentos concluídos"} •{" "}
                         {monthlyExpensesList.length}{" "}
@@ -929,16 +1052,16 @@ export default function FinanceiroPage() {
                       </p>
                     </div>
 
-                    <div className="grid grid-cols-3 gap-4 sm:gap-8 text-xs font-mono pt-3 lg:pt-0 border-t lg:border-t-0 border-white/10">
+                    <div className="grid grid-cols-3 gap-4 sm:gap-8 text-xs font-mono tabular-nums pt-3 lg:pt-0 border-t lg:border-t-0 border-white/15">
                       <div>
                         <span className="text-[10px] text-gray-400 block uppercase">Bruto Total</span>
-                        <span className="text-base sm:text-lg text-white font-serif font-bold">
+                        <span className="text-base sm:text-xl text-white font-serif font-bold">
                           {formatBRL(monthlyGross)}
                         </span>
                       </div>
                       <div>
                         <span className="text-[10px] text-rose-300 block uppercase">Despesa Total</span>
-                        <span className="text-base sm:text-lg text-rose-400 font-serif font-bold">
+                        <span className="text-base sm:text-xl text-rose-400 font-serif font-bold">
                           {monthlyExpensesTotal > 0 ? `- ${formatBRL(monthlyExpensesTotal)}` : "R$ 0,00"}
                         </span>
                       </div>
@@ -947,7 +1070,7 @@ export default function FinanceiroPage() {
                           Líquido Total
                         </span>
                         <span
-                          className={`text-base sm:text-xl font-serif font-bold ${
+                          className={`text-lg sm:text-2xl font-serif font-bold ${
                             monthlyNet >= 0 ? "text-emerald-300" : "text-rose-400"
                           }`}
                         >
@@ -968,40 +1091,45 @@ export default function FinanceiroPage() {
         <>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
             {/* Card 1: Entradas Brutas do Dia */}
-            <div className="bg-[#080A0E] border border-white/10 rounded-3xl p-6 relative overflow-hidden group hover:border-[#DFBA73]/40 transition-all">
-              <div className="absolute top-0 right-0 w-28 h-28 bg-[#DFBA73]/5 rounded-full blur-2xl pointer-events-none" />
-              <div className="flex items-center justify-between mb-4">
-                <span className="text-[10px] font-mono uppercase tracking-widest text-gray-400">
-                  Entradas Brutas (100%)
-                </span>
-                <div className="w-9 h-9 rounded-xl bg-[#DFBA73]/10 border border-[#DFBA73]/20 flex items-center justify-center text-[#DFBA73]">
-                  <ArrowUpRight className="w-4 h-4" />
+            <div className="group relative overflow-hidden rounded-3xl bg-gradient-to-b from-[#0E1117] via-[#090B10] to-[#06070A] border border-white/10 hover:border-[#DFBA73]/45 p-6 shadow-[0_20px_50px_-12px_rgba(0,0,0,0.85),inset_0_1px_0_0_rgba(255,255,255,0.06)] hover:-translate-y-0.5 transition-all duration-300 flex flex-col justify-between">
+              <div className="absolute inset-x-0 top-0 h-[1.5px] bg-gradient-to-r from-transparent via-[#DFBA73]/60 to-transparent pointer-events-none" />
+              <div className="absolute -top-12 -right-12 w-28 h-28 bg-[#DFBA73]/10 rounded-full blur-2xl pointer-events-none" />
+              <div>
+                <div className="flex items-center justify-between mb-4">
+                  <span className="text-[10px] font-mono uppercase tracking-widest text-gray-400">
+                    Entradas Brutas (100%)
+                  </span>
+                  <div className="w-9 h-9 rounded-xl bg-[#DFBA73]/15 border border-[#DFBA73]/30 flex items-center justify-center text-[#DFBA73]">
+                    <ArrowUpRight className="w-4 h-4" />
+                  </div>
                 </div>
+                <h3 className="text-3xl font-serif font-bold text-white tabular-nums tracking-tight">
+                  {formatBRL(dailyGross)}
+                </h3>
               </div>
-              <h3 className="text-3xl font-serif text-white tracking-tight mb-1">
-                {formatBRL(dailyGross)}
-              </h3>
-              <p className="text-xs text-gray-400 font-light">
-                {dailyCuts} {dailyCuts === 1 ? "atendimento realizado" : "atendimentos realizados"} na
-                data.
+              <p className="text-xs text-gray-400 font-light mt-4 pt-3 border-t border-white/[0.06]">
+                {dailyCuts} {dailyCuts === 1 ? "atendimento realizado" : "atendimentos realizados"} na data.
               </p>
             </div>
 
             {/* Card 2: Custos & Despesas do Dia */}
-            <div className="bg-[#080A0E] border border-white/10 rounded-3xl p-6 relative overflow-hidden group hover:border-rose-500/30 transition-all">
-              <div className="absolute top-0 right-0 w-28 h-28 bg-rose-500/5 rounded-full blur-2xl pointer-events-none" />
-              <div className="flex items-center justify-between mb-4">
-                <span className="text-[10px] font-mono uppercase tracking-widest text-rose-400/90 font-medium">
-                  Custos & Insumos
-                </span>
-                <div className="w-9 h-9 rounded-xl bg-rose-500/10 border border-rose-500/20 flex items-center justify-center text-rose-400">
-                  <TrendingDown className="w-4 h-4" />
+            <div className="group relative overflow-hidden rounded-3xl bg-gradient-to-b from-[#130B0F] via-[#0B080A] to-[#060608] border border-rose-500/20 hover:border-rose-500/45 p-6 shadow-[0_20px_50px_-12px_rgba(0,0,0,0.85),inset_0_1px_0_0_rgba(255,255,255,0.05)] hover:-translate-y-0.5 transition-all duration-300 flex flex-col justify-between">
+              <div className="absolute inset-x-0 top-0 h-[1.5px] bg-gradient-to-r from-transparent via-rose-400/65 to-transparent pointer-events-none" />
+              <div className="absolute -top-12 -right-12 w-28 h-28 bg-rose-500/10 rounded-full blur-2xl pointer-events-none" />
+              <div>
+                <div className="flex items-center justify-between mb-4">
+                  <span className="text-[10px] font-mono uppercase tracking-widest text-rose-300 font-semibold">
+                    Custos & Insumos
+                  </span>
+                  <div className="w-9 h-9 rounded-xl bg-rose-500/15 border border-rose-500/30 flex items-center justify-center text-rose-400">
+                    <TrendingDown className="w-4 h-4" />
+                  </div>
                 </div>
+                <h3 className="text-3xl font-serif font-bold text-rose-400 tabular-nums tracking-tight">
+                  {dailyExpensesTotal > 0 ? `- ${formatBRL(dailyExpensesTotal)}` : "R$ 0,00"}
+                </h3>
               </div>
-              <h3 className="text-3xl font-serif text-rose-400 tracking-tight mb-1">
-                {dailyExpensesTotal > 0 ? `- ${formatBRL(dailyExpensesTotal)}` : "R$ 0,00"}
-              </h3>
-              <p className="text-xs text-gray-400 font-light">
+              <p className="text-xs text-gray-400 font-light mt-4 pt-3 border-t border-rose-500/10">
                 {dailyExpensesList.length}{" "}
                 {dailyExpensesList.length === 1 ? "despesa lançada" : "despesas lançadas"} na data.
               </p>
@@ -1009,56 +1137,67 @@ export default function FinanceiroPage() {
 
             {/* Card 3: Lucro Líquido Real do Dia */}
             <div
-              className={`bg-gradient-to-br from-[#080A0E] via-[#050608] rounded-3xl p-6 relative overflow-hidden transition-all ${
+              className={`group relative overflow-hidden rounded-3xl p-6 shadow-[0_20px_50px_-12px_rgba(0,0,0,0.85),inset_0_1px_0_0_rgba(255,255,255,0.08)] hover:-translate-y-0.5 transition-all duration-300 flex flex-col justify-between border ${
                 dailyNet >= 0
-                  ? "to-emerald-950/20 border border-emerald-500/30 hover:border-emerald-500/50"
-                  : "to-rose-950/20 border border-rose-500/30 hover:border-rose-500/50"
+                  ? "bg-gradient-to-br from-[#0B1713] via-[#080E0C] to-[#060807] border-emerald-500/35 hover:border-emerald-400/60"
+                  : "bg-gradient-to-br from-[#190B10] via-[#0E070A] to-[#060608] border-rose-500/35 hover:border-rose-400/60"
               }`}
             >
-              <div className="flex items-center justify-between mb-4">
-                <span
-                  className={`text-[10px] font-mono uppercase tracking-widest font-semibold ${
-                    dailyNet >= 0 ? "text-emerald-400" : "text-rose-400"
-                  }`}
-                >
-                  Lucro Líquido Real
-                </span>
-                <div
-                  className={`w-9 h-9 rounded-xl flex items-center justify-center border ${
-                    dailyNet >= 0
-                      ? "bg-emerald-500/20 border-emerald-500/40 text-emerald-300"
-                      : "bg-rose-500/20 border-rose-500/40 text-rose-300"
-                  }`}
-                >
-                  <Wallet className="w-4 h-4" />
-                </div>
-              </div>
-              <h3
-                className={`text-3xl font-serif tracking-tight mb-1 ${
-                  dailyNet >= 0 ? "text-emerald-400" : "text-rose-400"
+              <div
+                className={`absolute inset-x-0 top-0 h-[2px] bg-gradient-to-r from-transparent to-transparent pointer-events-none ${
+                  dailyNet >= 0 ? "via-emerald-400/80" : "via-rose-400/80"
                 }`}
-              >
-                {formatBRL(dailyNet)}
-              </h3>
-              <p className="text-xs text-gray-400 font-light">
+              />
+              <div>
+                <div className="flex items-center justify-between mb-4">
+                  <span
+                    className={`text-[10px] font-mono uppercase tracking-widest font-bold ${
+                      dailyNet >= 0 ? "text-emerald-300" : "text-rose-300"
+                    }`}
+                  >
+                    Lucro Líquido Real
+                  </span>
+                  <div
+                    className={`w-9 h-9 rounded-xl flex items-center justify-center border ${
+                      dailyNet >= 0
+                        ? "bg-emerald-500/20 border-emerald-400/40 text-emerald-300"
+                        : "bg-rose-500/20 border-rose-400/40 text-rose-300"
+                    }`}
+                  >
+                    <Wallet className="w-4 h-4" />
+                  </div>
+                </div>
+                <h3
+                  className={`text-3xl font-serif font-bold tabular-nums tracking-tight ${
+                    dailyNet >= 0 ? "text-emerald-300" : "text-rose-300"
+                  }`}
+                >
+                  {formatBRL(dailyNet)}
+                </h3>
+              </div>
+              <p className="text-xs text-gray-400 font-light mt-4 pt-3 border-t border-white/[0.08]">
                 Faturamento bruto menos despesas do dia.
               </p>
             </div>
 
             {/* Card 4: Ticket Médio */}
-            <div className="bg-[#080A0E] border border-white/10 rounded-3xl p-6 relative overflow-hidden group hover:border-[#DFBA73]/40 transition-all">
-              <div className="flex items-center justify-between mb-4">
-                <span className="text-[10px] font-mono uppercase tracking-widest text-gray-400">
-                  Ticket Médio
-                </span>
-                <div className="w-9 h-9 rounded-xl bg-white/5 border border-white/10 flex items-center justify-center text-[#DFBA73]">
-                  <Sparkles className="w-4 h-4" />
+            <div className="group relative overflow-hidden rounded-3xl bg-gradient-to-b from-[#0E1117] via-[#090B10] to-[#06070A] border border-white/10 hover:border-[#DFBA73]/45 p-6 shadow-[0_20px_50px_-12px_rgba(0,0,0,0.85),inset_0_1px_0_0_rgba(255,255,255,0.06)] hover:-translate-y-0.5 transition-all duration-300 flex flex-col justify-between">
+              <div className="absolute inset-x-0 top-0 h-[1.5px] bg-gradient-to-r from-transparent via-[#DFBA73]/50 to-transparent pointer-events-none" />
+              <div className="absolute -top-12 -right-12 w-28 h-28 bg-[#DFBA73]/8 rounded-full blur-2xl pointer-events-none" />
+              <div>
+                <div className="flex items-center justify-between mb-4">
+                  <span className="text-[10px] font-mono uppercase tracking-widest text-gray-400">
+                    Ticket Médio
+                  </span>
+                  <div className="w-9 h-9 rounded-xl bg-white/5 border border-white/10 flex items-center justify-center text-[#DFBA73]">
+                    <Sparkles className="w-4 h-4" />
+                  </div>
                 </div>
+                <h3 className="text-3xl font-serif font-bold text-white tabular-nums tracking-tight">
+                  {formatBRL(dailyTicket)}
+                </h3>
               </div>
-              <h3 className="text-3xl font-serif text-white tracking-tight mb-1">
-                {formatBRL(dailyTicket)}
-              </h3>
-              <p className="text-xs text-gray-400 font-light">
+              <p className="text-xs text-gray-400 font-light mt-4 pt-3 border-t border-white/[0.06]">
                 Média de receita por cliente no dia.
               </p>
             </div>
@@ -1145,8 +1284,8 @@ export default function FinanceiroPage() {
       )}
 
       {/* TABELA DE SAÍDAS & DESPESAS REGISTRADAS (MENSAL OU DIÁRIA) */}
-      <div className="bg-[#080A0E] border border-white/10 rounded-3xl p-6 md:p-8 space-y-6">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-white/5 pb-4">
+      <div className="relative overflow-hidden bg-gradient-to-b from-[#0C0F14] via-[#080A0E] to-[#06070A] border border-white/10 rounded-3xl p-6 md:p-8 space-y-6 shadow-[0_24px_60px_-15px_rgba(0,0,0,0.85),inset_0_1px_0_0_rgba(255,255,255,0.05)]">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-white/[0.08] pb-4">
           <div>
             <h3 className="text-xl font-serif text-white flex items-center gap-2">
               <Receipt className="w-5 h-5 text-[#DFBA73]" />{" "}
@@ -1163,9 +1302,9 @@ export default function FinanceiroPage() {
           <button
             type="button"
             onClick={handleOpenExpenseModal}
-            className="px-4 py-2 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-xs font-mono text-gray-300 hover:text-white uppercase tracking-wider transition-all flex items-center justify-center gap-1.5 cursor-pointer self-start sm:self-center"
+            className="group px-4 py-2.5 rounded-xl bg-white/5 hover:bg-[#DFBA73] border border-white/15 hover:border-[#DFBA73] text-xs font-mono text-gray-200 hover:text-black font-semibold uppercase tracking-wider transition-all flex items-center justify-center gap-1.5 cursor-pointer self-start sm:self-center"
           >
-            <Plus className="w-3.5 h-3.5 text-[#DFBA73]" />
+            <Plus className="w-3.5 h-3.5 text-[#DFBA73] group-hover:text-black" />
             <span>Adicionar Despesa</span>
           </button>
         </div>
@@ -1181,19 +1320,19 @@ export default function FinanceiroPage() {
             {activeExpensesList.map((exp) => (
               <div
                 key={exp.id}
-                className="flex items-center justify-between gap-3 p-4 rounded-2xl bg-white/[0.02] border border-white/5 hover:border-white/15 transition-all group"
+                className="flex items-center justify-between gap-3 p-4 rounded-2xl bg-white/[0.03] border border-white/[0.08] hover:border-rose-500/30 hover:bg-white/[0.05] transition-all group"
               >
                 <div className="flex items-center gap-3.5 min-w-0">
-                  <div className="w-10 h-10 rounded-xl bg-rose-500/10 border border-rose-500/20 flex items-center justify-center text-rose-400 shrink-0">
+                  <div className="w-10 h-10 rounded-xl bg-rose-500/15 border border-rose-500/30 flex items-center justify-center text-rose-400 shrink-0">
                     <TrendingDown className="w-4 h-4" />
                   </div>
                   <div className="min-w-0">
                     <h4 className="text-sm font-medium text-white truncate">{exp.description}</h4>
-                    <div className="flex items-center gap-2 mt-0.5 flex-wrap">
-                      <span className="text-[9px] font-mono uppercase tracking-wider px-2 py-0.5 rounded-full bg-white/5 text-gray-400">
+                    <div className="flex items-center gap-2 mt-1 flex-wrap">
+                      <span className="text-[9px] font-mono uppercase tracking-wider px-2 py-0.5 rounded-full bg-white/[0.06] border border-white/10 text-gray-300">
                         {CATEGORY_LABELS[exp.category] || "Outros Custos"}
                       </span>
-                      <span className="text-[10px] text-[#DFBA73] font-mono font-semibold">
+                      <span className="text-[10px] text-[#DFBA73] font-mono font-semibold tabular-nums">
                         {formatFullDate(exp.dateStr)}
                       </span>
                     </div>
@@ -1201,13 +1340,13 @@ export default function FinanceiroPage() {
                 </div>
 
                 <div className="flex items-center gap-3 shrink-0">
-                  <span className="text-base font-serif text-rose-400 font-medium">
+                  <span className="text-base font-serif text-rose-400 font-bold tabular-nums">
                     - {formatBRL(exp.amount)}
                   </span>
                   <button
                     type="button"
                     onClick={() => handleDeleteExpense(exp.id)}
-                    className="p-2 text-gray-500 hover:text-rose-400 transition-colors opacity-80 hover:opacity-100 cursor-pointer"
+                    className="p-2 rounded-lg text-gray-500 hover:text-rose-400 hover:bg-rose-500/10 transition-colors cursor-pointer"
                     aria-label={`Excluir despesa ${exp.description}`}
                     title="Excluir despesa"
                   >

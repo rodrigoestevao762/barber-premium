@@ -3,7 +3,7 @@
 import { motion, AnimatePresence } from "framer-motion";
 import { createPortal } from "react-dom";
 import { 
-  TrendingUp, Users, UserPlus, Clock, ChevronRight, CheckCircle, Clock3, X, 
+  TrendingUp, TrendingDown, Users, UserPlus, Clock, ChevronRight, CheckCircle, Clock3, X, 
   Shield, DollarSign, Wallet, Award, ArrowUpRight, Lock, CreditCard, Banknote, 
   Sparkles, Calendar, Power, CheckCircle2, MessageCircle, AlertCircle, Edit3, 
   Send, UserCheck, ShieldCheck
@@ -723,89 +723,149 @@ export default function DashboardPage() {
       </div>
 
       {/* ━━━ CONSOLIDADO MENSAL (BRUTO, DESPESAS E LUCRO LÍQUIDO DO MÊS) ━━━ */}
-      {dashboardData.monthlySummary && (
-        <div className="bg-gradient-to-r from-[#080A0E] via-[#0b0e14] to-[#080A0E] border border-[#DFBA73]/30 rounded-3xl p-6 md:p-7 shadow-2xl space-y-5">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-white/10 pb-4">
-            <div>
-              <span className="text-[10px] font-mono uppercase tracking-[0.2em] text-[#DFBA73] font-bold">
-                Controle Mensal • {dashboardData.monthlySummary.monthLabel}
-              </span>
-              <h3 className="text-xl font-serif text-white mt-0.5">
-                Produção Bruta, Despesas & Lucro Líquido do Mês
-              </h3>
+      {dashboardData.monthlySummary && (() => {
+        const m = dashboardData.monthlySummary;
+        const gross = Number(m.grossRevenue || 0);
+        const exp = Number(m.expenses || 0);
+        const net = Number(m.netProfit || 0);
+        const margin = Number(m.marginPercent || 0);
+        const costRatio = gross > 0 ? Math.min(100, (exp / gross) * 100) : exp > 0 ? 100 : 0;
+        const isPositive = net >= 0;
+        const netFormatted = `${net < 0 ? "- " : ""}R$ ${Math.abs(net).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}`;
+
+        return (
+          <div className="relative overflow-hidden rounded-3xl bg-gradient-to-b from-[#0E1117] via-[#090B10] to-[#06070A] border border-[#DFBA73]/30 p-6 md:p-7 shadow-[0_24px_60px_-15px_rgba(0,0,0,0.85),inset_0_1px_0_0_rgba(255,255,255,0.06)] space-y-6">
+            <div className="absolute inset-x-0 top-0 h-[2px] bg-gradient-to-r from-transparent via-[#DFBA73]/80 to-transparent pointer-events-none" />
+            <div className="absolute -top-24 -right-24 w-72 h-72 bg-[#DFBA73]/8 rounded-full blur-3xl pointer-events-none" />
+
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-white/[0.08] pb-4 relative z-10">
+              <div>
+                <div className="flex items-center gap-2 mb-1">
+                  <span className="inline-flex items-center gap-1.5 text-[10px] font-mono uppercase tracking-[0.2em] text-[#DFBA73] font-bold">
+                    <span className="w-1.5 h-1.5 rounded-full bg-[#DFBA73]" />
+                    Controle Mensal • {m.monthLabel}
+                  </span>
+                </div>
+                <h3 className="text-xl sm:text-2xl font-serif text-white tracking-tight">
+                  Produção Bruta, Despesas & <span className="text-[#F5D799] italic">Lucro Líquido</span>
+                </h3>
+              </div>
+              <a
+                href="/dashboard/financeiro"
+                className="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-xl bg-gradient-to-r from-[#DFBA73]/20 to-[#DFBA73]/10 hover:from-[#F5D799] hover:to-[#DFBA73] text-[#F5D799] hover:text-black border border-[#DFBA73]/40 text-xs font-mono font-bold uppercase tracking-wider transition-all duration-300 shadow-lg shadow-black/40 self-start sm:self-center"
+              >
+                <span>Abrir Financeiro Mensal</span>
+                <ChevronRight className="w-3.5 h-3.5" />
+              </a>
             </div>
-            <a
-              href="/dashboard/financeiro"
-              className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-[#DFBA73]/15 hover:bg-[#DFBA73] text-[#F5D799] hover:text-black border border-[#DFBA73]/40 text-xs font-mono font-bold uppercase tracking-wider transition-all self-start sm:self-center"
-            >
-              <span>Abrir Financeiro Mensal</span>
-              <ChevronRight className="w-3.5 h-3.5" />
-            </a>
+
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 relative z-10">
+              {/* Produção Bruta */}
+              <div className="group relative overflow-hidden p-5 rounded-2xl bg-gradient-to-b from-white/[0.04] to-white/[0.01] border border-white/10 hover:border-[#DFBA73]/40 shadow-[inset_0_1px_0_0_rgba(255,255,255,0.05)] transition-all duration-300">
+                <div className="flex items-center justify-between mb-3">
+                  <span className="text-[10px] font-mono uppercase tracking-widest text-gray-400">
+                    Produção Bruta no Mês
+                  </span>
+                  <div className="w-8 h-8 rounded-xl bg-[#DFBA73]/15 border border-[#DFBA73]/30 flex items-center justify-center text-[#DFBA73]">
+                    <ArrowUpRight className="w-4 h-4" />
+                  </div>
+                </div>
+                <p className="text-2xl sm:text-3xl font-serif text-white font-bold tabular-nums tracking-tight">
+                  R$ {gross.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
+                </p>
+                <div className="mt-3 pt-2.5 border-t border-white/[0.06] flex items-center justify-between text-[11px] font-mono text-gray-400">
+                  <span>{m.completedCount || 0} atendimentos</span>
+                  <span className="text-[#F5D799]/80">100% Studio</span>
+                </div>
+              </div>
+
+              {/* Despesa Mensal */}
+              <div className="group relative overflow-hidden p-5 rounded-2xl bg-gradient-to-b from-rose-500/[0.06] to-white/[0.01] border border-rose-500/20 hover:border-rose-500/40 shadow-[inset_0_1px_0_0_rgba(255,255,255,0.04)] transition-all duration-300">
+                <div className="flex items-center justify-between mb-3">
+                  <span className="text-[10px] font-mono uppercase tracking-widest text-rose-300 font-semibold">
+                    Despesa Mensal
+                  </span>
+                  <div className="w-8 h-8 rounded-xl bg-rose-500/15 border border-rose-500/30 flex items-center justify-center text-rose-400">
+                    <TrendingDown className="w-4 h-4" />
+                  </div>
+                </div>
+                <p className="text-2xl sm:text-3xl font-serif text-rose-400 font-bold tabular-nums tracking-tight">
+                  {exp > 0 ? `- R$ ${exp.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}` : "R$ 0,00"}
+                </p>
+                <div className="mt-3 pt-2.5 border-t border-rose-500/10 flex items-center justify-between text-[11px] font-mono text-gray-400">
+                  <span>{m.expensesCount || 0} lançamentos</span>
+                  <span className="text-rose-300/80">{costRatio.toFixed(1)}% do bruto</span>
+                </div>
+              </div>
+
+              {/* Lucro Líquido */}
+              <div
+                className={`group relative overflow-hidden p-5 rounded-2xl border shadow-[inset_0_1px_0_0_rgba(255,255,255,0.06)] transition-all duration-300 ${
+                  isPositive
+                    ? "bg-gradient-to-br from-emerald-500/[0.12] via-[#0B1110] to-[#070B0A] border-emerald-500/35 hover:border-emerald-400/60"
+                    : "bg-gradient-to-br from-rose-500/[0.12] via-[#120A0D] to-[#080608] border-rose-500/35 hover:border-rose-400/60"
+                }`}
+              >
+                <div className="flex items-center justify-between mb-3">
+                  <span
+                    className={`text-[10px] font-mono uppercase tracking-widest font-bold ${
+                      isPositive ? "text-emerald-300" : "text-rose-300"
+                    }`}
+                  >
+                    Lucro Líquido do Mês
+                  </span>
+                  <div
+                    className={`w-8 h-8 rounded-xl border flex items-center justify-center ${
+                      isPositive
+                        ? "bg-emerald-500/20 border-emerald-400/40 text-emerald-300"
+                        : "bg-rose-500/20 border-rose-400/40 text-rose-300"
+                    }`}
+                  >
+                    <Wallet className="w-4 h-4" />
+                  </div>
+                </div>
+                <p
+                  className={`text-2xl sm:text-3xl font-serif font-bold tabular-nums tracking-tight ${
+                    isPositive ? "text-emerald-300" : "text-rose-300"
+                  }`}
+                >
+                  {netFormatted}
+                </p>
+                <div
+                  className={`mt-3 pt-2.5 border-t flex items-center justify-between text-[11px] font-mono ${
+                    isPositive
+                      ? "border-emerald-500/15 text-emerald-300/85"
+                      : "border-rose-500/15 text-rose-300/85"
+                  }`}
+                >
+                  <span>Bruto − Despesas</span>
+                  <span className="font-bold">Margem {margin.toFixed(1)}%</span>
+                </div>
+              </div>
+            </div>
+
+            {/* Barra de Saúde Financeira do Mês */}
+            <div className="relative z-10 pt-1">
+              <div className="flex items-center justify-between text-[10px] font-mono uppercase tracking-wider text-gray-400 mb-1.5">
+                <span>Retenção Líquida ({Math.max(0, 100 - costRatio).toFixed(1)}%)</span>
+                <span>Custos ({costRatio.toFixed(1)}%)</span>
+              </div>
+              <div className="h-2 rounded-full bg-white/[0.06] overflow-hidden flex">
+                <div
+                  className="h-full bg-gradient-to-r from-emerald-500 via-emerald-400 to-[#DFBA73] transition-all duration-500"
+                  style={{ width: `${gross > 0 ? Math.max(0, 100 - costRatio) : isPositive ? 100 : 0}%` }}
+                />
+                {costRatio > 0 && (
+                  <div
+                    className="h-full bg-gradient-to-r from-rose-500 to-rose-400 transition-all duration-500"
+                    style={{ width: `${costRatio}%` }}
+                  />
+                )}
+              </div>
+            </div>
           </div>
-
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-            <div className="p-4 rounded-2xl bg-white/[0.03] border border-white/10">
-              <span className="text-[10px] font-mono uppercase tracking-wider text-gray-400">
-                Produção Bruta no Mês
-              </span>
-              <p className="text-2xl sm:text-3xl font-serif text-white font-bold mt-1">
-                R$ {Number(dashboardData.monthlySummary.grossRevenue || 0).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
-              </p>
-              <span className="text-[11px] text-gray-400 font-mono">
-                {dashboardData.monthlySummary.completedCount || 0} atendimentos concluídos
-              </span>
-            </div>
-
-            <div className="p-4 rounded-2xl bg-rose-500/[0.05] border border-rose-500/20">
-              <span className="text-[10px] font-mono uppercase tracking-wider text-rose-400 font-semibold">
-                Despesa Mensal
-              </span>
-              <p className="text-2xl sm:text-3xl font-serif text-rose-400 font-bold mt-1">
-                - R$ {Number(dashboardData.monthlySummary.expenses || 0).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
-              </p>
-              <span className="text-[11px] text-gray-400 font-mono">
-                {dashboardData.monthlySummary.expensesCount || 0} gastos registrados no mês
-              </span>
-            </div>
-
-            <div
-              className={`p-4 rounded-2xl border ${
-                Number(dashboardData.monthlySummary.netProfit || 0) >= 0
-                  ? "bg-emerald-500/10 border-emerald-500/30"
-                  : "bg-rose-500/10 border-rose-500/30"
-              }`}
-            >
-              <span
-                className={`text-[10px] font-mono uppercase tracking-wider font-bold ${
-                  Number(dashboardData.monthlySummary.netProfit || 0) >= 0
-                    ? "text-emerald-300"
-                    : "text-rose-300"
-                }`}
-              >
-                Lucro Líquido do Mês
-              </span>
-              <p
-                className={`text-2xl sm:text-3xl font-serif font-bold mt-1 ${
-                  Number(dashboardData.monthlySummary.netProfit || 0) >= 0
-                    ? "text-emerald-300"
-                    : "text-rose-300"
-                }`}
-              >
-                R$ {Number(dashboardData.monthlySummary.netProfit || 0).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
-              </p>
-              <span
-                className={`text-[11px] font-mono ${
-                  Number(dashboardData.monthlySummary.netProfit || 0) >= 0
-                    ? "text-emerald-300/80"
-                    : "text-rose-300/80"
-                }`}
-              >
-                Margem: {Number(dashboardData.monthlySummary.marginPercent || 0).toFixed(1)}%
-              </span>
-            </div>
-          </div>
-        </div>
-      )}
+        );
+      })()}
 
       {/* ━━━ TABELA DE ATENDIMENTOS DO DIA ━━━ */}
       <div className="bg-[#080A0E] border border-white/10 rounded-3xl p-6 md:p-8 shadow-2xl">

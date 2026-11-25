@@ -167,133 +167,153 @@ export default function FechamentoPage() {
       )}
 
       {/* CARDS DE FATURAMENTO DIÁRIO + DESPESAS + LÍQUIDO */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
         
         {/* Faturamento Bruto Total do Dia */}
         <motion.div 
-          initial={{ opacity: 0, y: 20 }}
+          initial={{ opacity: 0, y: 16 }}
           animate={{ opacity: 1, y: 0 }}
-          className="bg-[#080A0E] border border-white/10 rounded-3xl p-7 relative overflow-hidden group hover:border-[#DFBA73]/40 transition-all shadow-xl shadow-black/40"
+          className="bg-gradient-to-b from-[#0E1117] via-[#090B10] to-[#06070A] border border-white/10 hover:border-[#DFBA73]/45 rounded-3xl p-6 relative overflow-hidden group transition-all duration-300 shadow-[0_20px_50px_-12px_rgba(0,0,0,0.8),inset_0_1px_0_0_rgba(255,255,255,0.06)] hover:-translate-y-0.5"
         >
-          <div className="absolute top-0 right-0 w-36 h-36 bg-[#DFBA73]/5 rounded-full blur-3xl pointer-events-none" />
-          <div className="flex items-center gap-4 mb-4">
-            <div className="w-12 h-12 bg-[#DFBA73]/10 border border-[#DFBA73]/30 rounded-2xl flex items-center justify-center text-[#DFBA73]">
-              <DollarSign className="w-6 h-6" />
-            </div>
-            <div>
-              <p className="text-gray-400 text-[10px] uppercase font-mono tracking-widest">Produção Bruta (Dia)</p>
-              <h3 className="text-3xl font-serif text-white tracking-tight mt-1">
-                R$ {data.totalRevenue.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-              </h3>
+          <div className="absolute inset-x-0 top-0 h-[1.5px] bg-gradient-to-r from-transparent via-[#DFBA73]/60 to-transparent pointer-events-none" />
+          <div className="absolute -top-12 -right-12 w-32 h-32 bg-[#DFBA73]/8 rounded-full blur-2xl pointer-events-none" />
+          <div className="flex items-center justify-between mb-4">
+            <span className="text-[10px] text-gray-400 uppercase font-mono tracking-widest">Produção Bruta (Dia)</span>
+            <div className="w-10 h-10 bg-[#DFBA73]/15 border border-[#DFBA73]/30 rounded-xl flex items-center justify-center text-[#DFBA73]">
+              <DollarSign className="w-5 h-5" />
             </div>
           </div>
-          <p className="text-xs text-gray-500 font-light">Soma de todos os cortes e atendimentos concluídos na data.</p>
+          <h3 className="text-3xl font-serif font-bold text-white tabular-nums tracking-tight">
+            R$ {data.totalRevenue.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+          </h3>
+          <p className="text-xs text-gray-400 font-light mt-2 pt-2.5 border-t border-white/[0.06]">
+            Soma dos serviços concluídos na data.
+          </p>
         </motion.div>
 
         {/* Despesas do Dia */}
         <motion.div 
-          initial={{ opacity: 0, y: 20 }}
+          initial={{ opacity: 0, y: 16 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.05 }}
-          className="bg-[#080A0E] border border-white/10 rounded-3xl p-7 relative overflow-hidden group hover:border-rose-500/30 transition-all shadow-xl shadow-black/40"
+          className="bg-gradient-to-b from-[#120B0E] via-[#0A080B] to-[#060608] border border-rose-500/20 hover:border-rose-500/45 rounded-3xl p-6 relative overflow-hidden group transition-all duration-300 shadow-[0_20px_50px_-12px_rgba(0,0,0,0.8),inset_0_1px_0_0_rgba(255,255,255,0.05)] hover:-translate-y-0.5"
         >
-          <div className="absolute top-0 right-0 w-36 h-36 bg-rose-500/5 rounded-full blur-3xl pointer-events-none" />
-          <div className="flex items-center gap-4 mb-4">
-            <div className="w-12 h-12 bg-rose-500/10 border border-rose-500/30 rounded-2xl flex items-center justify-center text-rose-400">
-              <TrendingDown className="w-6 h-6" />
-            </div>
-            <div>
-              <p className="text-rose-400 text-[10px] uppercase font-mono tracking-widest">Despesas do Dia</p>
-              <h3 className="text-3xl font-serif text-rose-400 tracking-tight mt-1">
-                - R$ {(data.totalExpenses || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-              </h3>
+          <div className="absolute inset-x-0 top-0 h-[1.5px] bg-gradient-to-r from-transparent via-rose-400/60 to-transparent pointer-events-none" />
+          <div className="absolute -top-12 -right-12 w-32 h-32 bg-rose-500/8 rounded-full blur-2xl pointer-events-none" />
+          <div className="flex items-center justify-between mb-4">
+            <span className="text-rose-300 text-[10px] uppercase font-mono tracking-widest font-semibold">Despesas do Dia</span>
+            <div className="w-10 h-10 bg-rose-500/15 border border-rose-500/30 rounded-xl flex items-center justify-center text-rose-400">
+              <TrendingDown className="w-5 h-5" />
             </div>
           </div>
-          <p className="text-xs text-gray-500 font-light">Saídas e insumos lançados no módulo Financeiro nesta data.</p>
+          <h3 className="text-3xl font-serif font-bold text-rose-400 tabular-nums tracking-tight">
+            {(data.totalExpenses || 0) > 0 ? `- R$ ${(data.totalExpenses || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}` : "R$ 0,00"}
+          </h3>
+          <p className="text-xs text-gray-400 font-light mt-2 pt-2.5 border-t border-rose-500/10">
+            Saídas lançadas no módulo Financeiro.
+          </p>
         </motion.div>
 
         {/* Produção Líquida Lucas Augusto (100% Dono) */}
-        <motion.div 
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.1 }}
-          className="bg-gradient-to-br from-[#080A0E] via-[#050608] to-[#DFBA73]/10 border border-[#DFBA73]/40 rounded-3xl p-7 relative overflow-hidden group hover:border-[#DFBA73]/60 transition-all shadow-xl shadow-black/40"
-        >
-          <div className="absolute top-0 right-0 w-36 h-36 bg-[#DFBA73]/10 rounded-full blur-3xl pointer-events-none" />
-          <div className="flex items-center gap-4 mb-4">
-            <div className="w-12 h-12 bg-gradient-to-r from-[#F5D799] to-[#DFBA73] rounded-2xl flex items-center justify-center text-black shadow-md shadow-[#DFBA73]/20">
-              <Wallet className="w-6 h-6" />
-            </div>
-            <div>
-              <p className="text-[#F5D799] text-[10px] uppercase font-mono tracking-widest font-bold">Lucro Líquido do Dia</p>
-              <h3 className="text-3xl font-serif text-[#F5D799] tracking-tight mt-1">
-                R$ {(data.netRevenue ?? data.totalRevenue).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+        {(() => {
+          const dayNet = data.netRevenue ?? data.totalRevenue;
+          const isPos = dayNet >= 0;
+          return (
+            <motion.div 
+              initial={{ opacity: 0, y: 16 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.1 }}
+              className="bg-gradient-to-br from-[#14110B] via-[#0B0A08] to-[#060608] border border-[#DFBA73]/45 hover:border-[#DFBA73]/75 rounded-3xl p-6 relative overflow-hidden group transition-all duration-300 shadow-[0_20px_50px_-12px_rgba(223,186,115,0.14),inset_0_1px_0_0_rgba(245,215,153,0.12)] hover:-translate-y-0.5"
+            >
+              <div className="absolute inset-x-0 top-0 h-[2px] bg-gradient-to-r from-transparent via-[#F5D799] to-transparent pointer-events-none" />
+              <div className="absolute -top-12 -right-12 w-32 h-32 bg-[#DFBA73]/15 rounded-full blur-2xl pointer-events-none" />
+              <div className="flex items-center justify-between mb-4">
+                <span className="text-[#F5D799] text-[10px] uppercase font-mono tracking-widest font-bold">Lucro Líquido do Dia</span>
+                <div className="w-10 h-10 bg-gradient-to-br from-[#F5D799] to-[#DFBA73] rounded-xl flex items-center justify-center text-black shadow-md shadow-[#DFBA73]/25">
+                  <Wallet className="w-5 h-5" />
+                </div>
+              </div>
+              <h3 className={`text-3xl font-serif font-bold tabular-nums tracking-tight ${isPos ? "text-[#F5D799]" : "text-rose-400"}`}>
+                {dayNet < 0 ? "- " : ""}R$ {Math.abs(dayNet).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
               </h3>
-            </div>
-          </div>
-          <p className="text-xs text-gray-400 font-light">Produção bruta deduzida das despesas do dia (100% Dono).</p>
-        </motion.div>
+              <p className="text-xs text-gray-300/80 font-light mt-2 pt-2.5 border-t border-[#DFBA73]/15">
+                Produção bruta menos despesas (100% Dono).
+              </p>
+            </motion.div>
+          );
+        })()}
       </div>
 
       {/* CONSOLIDADO MENSAL NO FECHAMENTO */}
-      {data.monthlySummary && (
-        <div className="bg-[#080A0E] border border-[#DFBA73]/25 rounded-3xl p-6 md:p-7 space-y-4">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-white/5 pb-3">
-            <div>
-              <span className="text-[10px] font-mono uppercase tracking-widest text-[#DFBA73] font-bold">
-                Consolidado do Mês • {data.monthlySummary.monthLabel}
-              </span>
-              <h3 className="text-lg font-serif text-white mt-0.5">
-                Produção Bruta, Despesa e Lucro Líquido Mensal
-              </h3>
+      {data.monthlySummary && (() => {
+        const m = data.monthlySummary;
+        const isPos = m.netProfit >= 0;
+        const costPct = m.grossRevenue > 0 ? Math.min(100, (m.expenses / m.grossRevenue) * 100) : 0;
+        return (
+          <div className="relative overflow-hidden bg-gradient-to-b from-[#0E1117] via-[#090B10] to-[#06070A] border border-[#DFBA73]/30 rounded-3xl p-6 md:p-7 space-y-5 shadow-[0_24px_60px_-15px_rgba(0,0,0,0.85),inset_0_1px_0_0_rgba(255,255,255,0.06)]">
+            <div className="absolute inset-x-0 top-0 h-[2px] bg-gradient-to-r from-transparent via-[#DFBA73]/75 to-transparent pointer-events-none" />
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-white/[0.08] pb-4">
+              <div>
+                <span className="inline-flex items-center gap-1.5 text-[10px] font-mono uppercase tracking-widest text-[#DFBA73] font-bold">
+                  <span className="w-1.5 h-1.5 rounded-full bg-[#DFBA73]" />
+                  Consolidado do Mês • {m.monthLabel}
+                </span>
+                <h3 className="text-xl font-serif text-white mt-0.5">
+                  Produção Bruta, Despesa e <span className="text-[#F5D799] italic">Lucro Líquido Mensal</span>
+                </h3>
+              </div>
+              <Link
+                href="/dashboard/financeiro"
+                className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-[#DFBA73]/15 hover:bg-[#DFBA73] text-[#F5D799] hover:text-black border border-[#DFBA73]/35 text-xs font-mono font-bold uppercase tracking-wider transition-all self-start sm:self-center"
+              >
+                Ver Extrato Mensal Completo →
+              </Link>
             </div>
-            <Link
-              href="/dashboard/financeiro"
-              className="text-xs font-mono uppercase tracking-wider text-[#DFBA73] hover:underline"
-            >
-              Ver Extrato Mensal Completo →
-            </Link>
+
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+              <div className="p-5 rounded-2xl bg-white/[0.03] border border-white/10 shadow-[inset_0_1px_0_0_rgba(255,255,255,0.04)]">
+                <span className="text-[10px] font-mono uppercase tracking-wider text-gray-400">
+                  Produção Bruta do Mês
+                </span>
+                <p className="text-2xl font-serif font-bold text-white tabular-nums mt-1.5">
+                  R$ {m.grossRevenue.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                </p>
+                <span className="text-[11px] text-gray-400 font-mono block mt-1">
+                  {m.completedCount} atendimentos concluídos
+                </span>
+              </div>
+
+              <div className="p-5 rounded-2xl bg-rose-500/[0.05] border border-rose-500/20 shadow-[inset_0_1px_0_0_rgba(255,255,255,0.03)]">
+                <span className="text-[10px] font-mono uppercase tracking-wider text-rose-300 font-semibold">
+                  Despesas do Mês
+                </span>
+                <p className="text-2xl font-serif font-bold text-rose-400 tabular-nums mt-1.5">
+                  {m.expenses > 0 ? `- R$ ${m.expenses.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}` : "R$ 0,00"}
+                </p>
+                <span className="text-[11px] text-gray-400 font-mono block mt-1">
+                  {m.expensesCount} lançamentos ({costPct.toFixed(1)}% do bruto)
+                </span>
+              </div>
+
+              <div className={`p-5 rounded-2xl border shadow-[inset_0_1px_0_0_rgba(255,255,255,0.05)] ${
+                isPos
+                  ? "bg-emerald-500/[0.09] border-emerald-500/35"
+                  : "bg-rose-500/[0.09] border-rose-500/35"
+              }`}>
+                <span className={`text-[10px] font-mono uppercase tracking-wider font-bold ${isPos ? "text-emerald-300" : "text-rose-300"}`}>
+                  Lucro Líquido do Mês
+                </span>
+                <p className={`text-2xl font-serif font-bold tabular-nums mt-1.5 ${isPos ? "text-emerald-300" : "text-rose-300"}`}>
+                  {m.netProfit < 0 ? "- " : ""}R$ {Math.abs(m.netProfit).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                </p>
+                <span className={`text-[11px] font-mono block mt-1 ${isPos ? "text-emerald-300/80" : "text-rose-300/80"}`}>
+                  Margem líquida de {m.marginPercent.toFixed(1)}%
+                </span>
+              </div>
+            </div>
           </div>
-
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-            <div className="p-4 rounded-2xl bg-white/[0.02] border border-white/5">
-              <span className="text-[10px] font-mono uppercase tracking-wider text-gray-400">
-                Produção Bruta do Mês
-              </span>
-              <p className="text-2xl font-serif text-white mt-1">
-                R$ {data.monthlySummary.grossRevenue.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-              </p>
-              <span className="text-[11px] text-gray-500 font-mono">
-                {data.monthlySummary.completedCount} atendimentos
-              </span>
-            </div>
-
-            <div className="p-4 rounded-2xl bg-rose-500/[0.04] border border-rose-500/20">
-              <span className="text-[10px] font-mono uppercase tracking-wider text-rose-400">
-                Despesas do Mês
-              </span>
-              <p className="text-2xl font-serif text-rose-400 mt-1">
-                - R$ {data.monthlySummary.expenses.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-              </p>
-              <span className="text-[11px] text-gray-500 font-mono">
-                {data.monthlySummary.expensesCount} lançamentos
-              </span>
-            </div>
-
-            <div className="p-4 rounded-2xl bg-emerald-500/[0.06] border border-emerald-500/30">
-              <span className="text-[10px] font-mono uppercase tracking-wider text-emerald-400 font-bold">
-                Lucro Líquido do Mês
-              </span>
-              <p className="text-2xl font-serif text-emerald-300 font-bold mt-1">
-                R$ {data.monthlySummary.netProfit.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-              </p>
-              <span className="text-[11px] text-emerald-400/75 font-mono">
-                Margem de {data.monthlySummary.marginPercent.toFixed(1)}%
-              </span>
-            </div>
-          </div>
-        </div>
-      )}
+        );
+      })()}
 
       {/* DETALHAMENTO DO PROFISSIONAL (COM A FOTO E DADOS DE LUCAS AUGUSTO) */}
       <div className="space-y-4">
