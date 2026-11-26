@@ -8,6 +8,7 @@ import {
   WEEKDAY_HOURS,
   SATURDAY_HOURS,
   doesBookingOccupySlot,
+  hasWalkInSlotEnded,
   toMinutes,
 } from "@/lib/studio-slots";
 
@@ -155,7 +156,11 @@ export async function GET(req: Request) {
 
     const pastSlots =
       cleanDateStr === brazilNow.date
-        ? orderedDaySlots.filter((slot) => toMinutes(slot) <= toMinutes(brazilNow.time))
+        ? orderedDaySlots.filter((slot) =>
+            includePast
+              ? hasWalkInSlotEnded(slot, brazilNow.time, orderedDaySlots)
+              : toMinutes(slot) <= toMinutes(brazilNow.time)
+          )
         : [];
 
     const occupiedSlots = orderedDaySlots.filter((slot) =>

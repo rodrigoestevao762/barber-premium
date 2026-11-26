@@ -6,7 +6,7 @@ import {
   WEEKDAY_HOURS,
   getBaseSlotsForDate,
   doesBookingOccupySlot,
-  toMinutes,
+  hasWalkInSlotEnded,
 } from "@/lib/studio-slots";
 
 interface WalkInTimePickerProps {
@@ -90,7 +90,7 @@ export function WalkInTimePicker({
           Boolean(time) &&
           !data.isClosed &&
           date >= apiToday &&
-          !(date === apiToday && toMinutes(time) < toMinutes(apiNow)) &&
+          !(date === apiToday && hasWalkInSlotEnded(time, apiNow, resolvedBase)) &&
           !(data.earlyClosingTime && time > data.earlyClosingTime) &&
           !(Array.isArray(data.lunchBreakSlots) && data.lunchBreakSlots.includes(time)) &&
           !(Array.isArray(data.bookedTimes) &&
@@ -119,7 +119,7 @@ export function WalkInTimePicker({
   const isPastDate = Boolean(date && date < todayDate);
   const isSelectedPast =
     Boolean(time) &&
-    (isPastDate || (date === todayDate && toMinutes(time) < toMinutes(currentTime)));
+    (isPastDate || (date === todayDate && hasWalkInSlotEnded(time, currentTime, orderedSlots)));
   const isSelectedLunch = Boolean(time && lunchBreakSlots.includes(time));
   const isSelectedAfterClosing = Boolean(time && earlyClosingTime && time > earlyClosingTime);
   const isSelectedOccupied =
@@ -205,7 +205,7 @@ export function WalkInTimePicker({
                 const isSelected = time === slot;
                 const isPast =
                   pastSlots.includes(slot) ||
-                  (date === todayDate && toMinutes(slot) < toMinutes(currentTime));
+                  (date === todayDate && hasWalkInSlotEnded(slot, currentTime, orderedSlots));
                 const isOccupied = occupiedSlots.includes(slot);
                 const isLunch = lunchBreakSlots.includes(slot);
                 const isAfterClosing = Boolean(earlyClosingTime && slot > earlyClosingTime);
@@ -267,7 +267,6 @@ export function WalkInTimePicker({
               </span>
               <input
                 type="time"
-                min={date === todayDate ? currentTime : undefined}
                 value={time}
                 onChange={(e) => onTimeChange(e.target.value)}
                 aria-label="Horário personalizado do cliente balcão"

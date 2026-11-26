@@ -11,7 +11,7 @@ import { getBrazilNow, getBrazilDateAndTimeString, parseBrazilDateTime, formatAp
 import { checkDayStatusDB, getDayScheduleDB } from '@/lib/studio-schedule';
 import { isBarberAvailable } from '@/lib/barber-availability';
 import { sendAppointmentConfirmationEmail, sendNewBookingNotificationToBarber } from '@/lib/resend';
-import { getBaseSlotsForDate, doesBookingOccupySlot } from '@/lib/studio-slots';
+import { getBaseSlotsForDate, doesBookingOccupySlot, hasWalkInSlotEnded } from '@/lib/studio-slots';
 
 export async function POST(req: Request) {
   try {
@@ -74,20 +74,23 @@ export async function POST(req: Request) {
       );
     }
 
+    const daySlots = getBaseSlotsForDate(requestedBrazil.date);
     const brazilNow = getBrazilNow();
     const isPast =
       requestedBrazil.date < brazilNow.date ||
-      (requestedBrazil.date === brazilNow.date && requestedBrazil.time < brazilNow.time);
+      (requestedBrazil.date === brazilNow.date &&
+        (isWalkIn
+          ? hasWalkInSlotEnded(requestedBrazil.time, brazilNow.time, daySlots)
+          : requestedBrazil.time < brazilNow.time));
 
     if (isPast) {
       return NextResponse.json(
-        { error: "Não é possível selecionar um horário que já passou. Escolha um horário futuro disponível." },
+        { error: "Não é possível selecionar um horário que já encerrou. Escolha um horário disponível." },
         { status: 400 }
       );
     }
 
     // 2.3 Garante que o horário não tenha sido ocupado por outro cliente ou Cliente Balcão
-    const daySlots = getBaseSlotsForDate(requestedBrazil.date);
     const startOfDay = new Date(`${requestedBrazil.date}T00:00:00-03:00`);
     const endOfDay = new Date(`${requestedBrazil.date}T23:59:59-03:00`);
     const existingTimes: string[] = [];

@@ -76,7 +76,31 @@ export function doesBookingOccupySlot(
 }
 
 /**
- * Sugere o primeiro horário livre e futuro da grade para o Cliente Balcão.
+ * Para o Cliente Balcão (presencial), um horário só é considerado passado após o fim
+ * da janela daquele atendimento (ex.: às 15:43, o horário das 15:00 vai até 16:00 e
+ * permanece liberado para o barbeiro registrar no balcão).
+ */
+export function hasWalkInSlotEnded(
+  timeHHMM: string,
+  currentHHMM: string,
+  orderedSlots: string[]
+): boolean {
+  if (!timeHHMM || !currentHHMM) return false;
+  const targetMin = toMinutes(timeHHMM);
+  const nowMin = toMinutes(currentHHMM);
+
+  const matchingSlot = orderedSlots.find((s) =>
+    doesBookingOccupySlot(timeHHMM, s, orderedSlots)
+  );
+  const windowEndMin = matchingSlot
+    ? getSlotWindowEndMinutes(matchingSlot, orderedSlots)
+    : targetMin + 60;
+
+  return windowEndMin <= nowMin;
+}
+
+/**
+ * Sugere o primeiro horário livre e ativo/futuro da grade para o Cliente Balcão.
  */
 export function getDefaultWalkInSlot(dateStr?: string, availableTimes?: string[]): string {
   if (availableTimes) {
@@ -90,8 +114,8 @@ export function getDefaultWalkInSlot(dateStr?: string, availableTimes?: string[]
 
   if (targetDate < nowBr.date) return "";
   if (targetDate === nowBr.date) {
-    const futureSlot = slots.find((slot) => toMinutes(slot) > toMinutes(nowBr.time));
-    return futureSlot || "";
+    const activeOrFutureSlot = slots.find((slot) => !hasWalkInSlotEnded(slot, nowBr.time, slots));
+    return activeOrFutureSlot || "";
   }
 
   return slots[0];
