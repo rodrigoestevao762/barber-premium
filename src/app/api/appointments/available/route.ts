@@ -112,6 +112,7 @@ export async function GET(req: Request) {
     const startOfDay = new Date(`${cleanDateStr}T00:00:00-03:00`);
     const endOfDay = new Date(`${cleanDateStr}T23:59:59-03:00`);
     const bookedTimes: string[] = [];
+    let dbOk = false;
 
     try {
       const bookedAppointments = await prisma.appointment.findMany({
@@ -119,23 +120,38 @@ export async function GET(req: Request) {
           date: { gte: startOfDay, lte: endOfDay },
           status: { notIn: ["CANCELLED"] },
         },
+        include: { user: { select: { name: true } } },
       });
 
-      (bookedAppointments || []).forEach((apt) => {
-        const t = formatAptTimeToHHMM(apt.date);
-        if (!bookedTimes.includes(t)) bookedTimes.push(t);
-      });
+      (bookedAppointments || [])
+        .filter(
+          (apt) =>
+            !apt.id?.includes("almir") &&
+            !apt.user?.name?.toLowerCase().includes("almir")
+        )
+        .forEach((apt) => {
+          const t = formatAptTimeToHHMM(apt.date);
+          if (!bookedTimes.includes(t)) bookedTimes.push(t);
+        });
+      dbOk = true;
     } catch (_) {}
 
-    const storedApts = getAppointmentsForDate(cleanDateStr, null);
-    storedApts
-      .filter((apt) => apt.status !== "CANCELLED")
-      .forEach((apt) => {
-        const t = formatAptTimeToHHMM(apt.date);
-        if (!bookedTimes.includes(t)) {
-          bookedTimes.push(t);
-        }
-      });
+    if (!dbOk) {
+      const storedApts = getAppointmentsForDate(cleanDateStr, null);
+      storedApts
+        .filter(
+          (apt) =>
+            apt.status !== "CANCELLED" &&
+            !apt.id?.includes("almir") &&
+            !apt.user?.name?.toLowerCase().includes("almir")
+        )
+        .forEach((apt) => {
+          const t = formatAptTimeToHHMM(apt.date);
+          if (!bookedTimes.includes(t)) {
+            bookedTimes.push(t);
+          }
+        });
+    }
 
     const pastSlots =
       cleanDateStr === brazilNow.date

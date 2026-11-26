@@ -16,6 +16,7 @@ export async function GET() {
     }
 
     let dbApts: any[] = [];
+    let dbOk = false;
     try {
       dbApts = await prisma.appointment.findMany({
         where: {
@@ -24,19 +25,18 @@ export async function GET() {
         include: { service: true, user: true, barber: true },
         orderBy: { date: 'asc' }
       });
+      dbOk = true;
     } catch (dbErr) {
       console.warn("DB offline ao carregar appointments/all, usando storage blindado.");
     }
 
-    const memApts = getAllStoredAppointments().filter(
-      (a) => !userBarberId || userRole === 'ADMIN' || a.barberId === userBarberId
-    );
+    const baseList = dbOk
+      ? dbApts
+      : getAllStoredAppointments().filter(
+          (a) => !userBarberId || userRole === 'ADMIN' || a.barberId === userBarberId
+        );
 
-    const map = new Map<string, any>();
-    memApts.forEach((a) => map.set(a.id, a));
-    dbApts.forEach((a) => map.set(a.id, a));
-
-    const combined = Array.from(map.values())
+    const combined = (baseList || [])
       .filter((a) => !a.id?.includes("almir") && !a.user?.name?.toLowerCase().includes("almir"))
       .sort((a: any, b: any) => new Date(a.date).getTime() - new Date(b.date).getTime());
 

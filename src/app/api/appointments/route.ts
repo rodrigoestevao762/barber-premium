@@ -91,6 +91,7 @@ export async function POST(req: Request) {
     const startOfDay = new Date(`${requestedBrazil.date}T00:00:00-03:00`);
     const endOfDay = new Date(`${requestedBrazil.date}T23:59:59-03:00`);
     const existingTimes: string[] = [];
+    let dbCheckOk = false;
 
     try {
       const dbExisting = await prisma.appointment.findMany({
@@ -98,14 +99,19 @@ export async function POST(req: Request) {
           date: { gte: startOfDay, lte: endOfDay },
           status: { notIn: ["CANCELLED"] },
         },
-        select: { date: true },
+        select: { id: true, date: true, user: { select: { name: true } } },
       });
-      dbExisting.forEach((a) => existingTimes.push(formatAptTimeToHHMM(a.date)));
+      dbExisting
+        .filter((a) => !a.id?.includes("almir") && !a.user?.name?.toLowerCase().includes("almir"))
+        .forEach((a) => existingTimes.push(formatAptTimeToHHMM(a.date)));
+      dbCheckOk = true;
     } catch (_) {}
 
-    getAppointmentsForDate(requestedBrazil.date, null)
-      .filter((a) => a.status !== "CANCELLED")
-      .forEach((a) => existingTimes.push(formatAptTimeToHHMM(a.date)));
+    if (!dbCheckOk) {
+      getAppointmentsForDate(requestedBrazil.date, null)
+        .filter((a) => a.status !== "CANCELLED")
+        .forEach((a) => existingTimes.push(formatAptTimeToHHMM(a.date)));
+    }
 
     const isConflict = existingTimes.some(
       (bt) =>
@@ -124,44 +130,18 @@ export async function POST(req: Request) {
     const cleanPhone = rawPhone.replace(/\D/g, "");
     const formattedEmail = clientEmail ? clientEmail.trim().toLowerCase() : null;
     const finalPassword = clientPassword?.trim() || Math.random().toString(36).slice(-8);
+    const resolvedName = clientName?.trim() || "Cliente VIP";
+    const newAppointmentId = `apt-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`;
 
-    // 3. PERSISTÊNCIA GARANTIDA NO STORE RESILIENTE (Conta de Usuário + Agendamento)
-    // Garante que o cliente SEMPRE tenha conta criada e possa fazer login imediatamente
-    const persistentClient = upsertStoredUser({
-      name: clientName?.trim() || "Cliente VIP",
-      email: formattedEmail,
-      phone: cleanPhone || rawPhone,
-      password: finalPassword,
-      role: "CLIENT",
-    });
-
-    const storedAppointment = addStoredAppointment({
-      date: appointmentDate.toISOString(),
-      barberId: assignedBarber.id,
-      service: {
-        id: matchedService.id,
-        name: matchedService.name,
-        price: matchedService.price,
-        duration: matchedService.duration,
-      },
-      user: {
-        id: persistentClient.id,
-        name: persistentClient.name,
-        phone: persistentClient.phone || rawPhone || "(69) 99999-9999",
-        email: persistentClient.email || formattedEmail || undefined,
-      },
-      status: appointmentStatus,
-      paymentMethod: paymentMethod || "PIX",
-      durationSpent: appointmentStatus === "COMPLETED" ? matchedService.duration : undefined,
-    });
-
-    // 4. PERSISTÊNCIA ADICIONAL NO BANCO DE DADOS (Quando Postgres estiver acessível)
+    // 3. PERSISTÊNCIA PRIMÁRIA NO BANCO POSTGRESQL (evita sujeira em /tmp quando DB está online)
     let dbSuccess = false;
     let dbClient: any = null;
     let dbAppointment: any = null;
+    let persistentClient: any = null;
+    let storedAppointment: any = null;
 
     try {
-      // 4.1 Sincroniza Barbeiro
+      // 3.1 Sincroniza Barbeiro
       try {
         await prisma.barber.upsert({
           where: { id: assignedBarber.id },
@@ -177,7 +157,7 @@ export async function POST(req: Request) {
         });
       } catch (_) {}
 
-      // 4.2 Sincroniza Serviço (sempre garante nome/preço/duração oficiais)
+      // 3.2 Sincroniza Serviço (sempre garante nome/preço/duração oficiais)
       let finalServiceId: string = matchedService.id;
       try {
         const newService = await prisma.service.upsert({
@@ -199,7 +179,7 @@ export async function POST(req: Request) {
         finalServiceId = newService.id;
       } catch (_) {}
 
-      // 4.3 Cria/Atualiza Usuário no Banco
+      // 3.3 Cria/Atualiza Usuário no Banco
       const hashedPassword = await bcrypt.hash(finalPassword, 10);
       const existingDbClient = await prisma.user.findFirst({
         where: {
@@ -214,7 +194,7 @@ export async function POST(req: Request) {
         dbClient = await prisma.user.update({
           where: { id: existingDbClient.id },
           data: {
-            name: persistentClient.name,
+            name: resolvedName,
             email: formattedEmail || existingDbClient.email,
             phone: cleanPhone || existingDbClient.phone,
             password: hashedPassword,
@@ -223,8 +203,8 @@ export async function POST(req: Request) {
       } else {
         dbClient = await prisma.user.create({
           data: {
-            id: persistentClient.id,
-            name: persistentClient.name,
+            id: `u-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
+            name: resolvedName,
             phone: cleanPhone || null,
             email: formattedEmail || null,
             password: hashedPassword,
@@ -233,10 +213,10 @@ export async function POST(req: Request) {
         });
       }
 
-      // 4.4 Cria Agendamento no Banco
+      // 3.4 Cria Agendamento no Banco
       dbAppointment = await prisma.appointment.create({
         data: {
-          id: storedAppointment.id,
+          id: newAppointmentId,
           date: appointmentDate,
           serviceId: finalServiceId,
           userId: dbClient.id,
@@ -247,22 +227,57 @@ export async function POST(req: Request) {
 
       dbSuccess = true;
     } catch (dbErr) {
-      // Postgres indisponível — o fluxo segue protegido pelo store resiliente
+      // Postgres indisponível — apenas em contingência persiste no storage local
       console.warn("Aviso: Banco relacional em contingência, dados persistidos no storage blindado.");
+      persistentClient = upsertStoredUser({
+        name: resolvedName,
+        email: formattedEmail,
+        phone: cleanPhone || rawPhone,
+        password: finalPassword,
+        role: "CLIENT",
+      });
+
+      storedAppointment = addStoredAppointment({
+        id: newAppointmentId,
+        date: appointmentDate.toISOString(),
+        barberId: assignedBarber.id,
+        service: {
+          id: matchedService.id,
+          name: matchedService.name,
+          price: matchedService.price,
+          duration: matchedService.duration,
+        },
+        user: {
+          id: persistentClient.id,
+          name: persistentClient.name,
+          phone: persistentClient.phone || rawPhone || "(69) 99999-9999",
+          email: persistentClient.email || formattedEmail || undefined,
+        },
+        status: appointmentStatus,
+        paymentMethod: paymentMethod || "PIX",
+        durationSpent: appointmentStatus === "COMPLETED" ? matchedService.duration : undefined,
+      });
     }
 
-    // 5. DISPARO DE NOTIFICAÇÕES POR E-MAIL RESEND (CLIENTE VIP + BARBEIRO)
-    try {
-      const requestedBrazil = getBrazilDateAndTimeString(appointmentDate);
-      const [year, month, day] = requestedBrazil.date.split("-");
-      const displayDate = `${day}/${month}/${year}`;
-      const displayTime = requestedBrazil.time;
+    const effectiveClient = dbClient || persistentClient || {
+      id: `u-${Date.now()}`,
+      name: resolvedName,
+      email: formattedEmail,
+      phone: cleanPhone || rawPhone,
+    };
 
-      // 5.1 Envia confirmação com credenciais de acesso VIP para o cliente
+    // 4. DISPARO DE NOTIFICAÇÕES POR E-MAIL RESEND (CLIENTE VIP + BARBEIRO)
+    try {
+      const requestedBrazilEmail = getBrazilDateAndTimeString(appointmentDate);
+      const [year, month, day] = requestedBrazilEmail.date.split("-");
+      const displayDate = `${day}/${month}/${year}`;
+      const displayTime = requestedBrazilEmail.time;
+
+      // 4.1 Envia confirmação com credenciais de acesso VIP para o cliente
       if (formattedEmail) {
         sendAppointmentConfirmationEmail({
           to: formattedEmail,
-          clientName: persistentClient.name,
+          clientName: effectiveClient.name,
           barberName: assignedBarber.name,
           serviceName: matchedService.name,
           servicePrice: matchedService.price,
@@ -275,13 +290,13 @@ export async function POST(req: Request) {
         }).catch((err) => console.error("Erro assíncrono envio e-mail cliente:", err));
       }
 
-      // 5.2 Envia alerta imediato de novo agendamento para o Barbeiro Mestre Lucas
+      // 4.2 Envia alerta imediato de novo agendamento para o Barbeiro Mestre Lucas
       const barberEmail = assignedBarber.email || "lucastj609@gmail.com";
       sendNewBookingNotificationToBarber({
         barberEmail,
         barberName: assignedBarber.name,
-        clientName: persistentClient.name,
-        clientPhone: persistentClient.phone || rawPhone,
+        clientName: effectiveClient.name,
+        clientPhone: effectiveClient.phone || rawPhone,
         clientEmail: formattedEmail || undefined,
         serviceName: matchedService.name,
         servicePrice: matchedService.price,
@@ -303,10 +318,10 @@ export async function POST(req: Request) {
       },
       barber: assignedBarber,
       client: {
-        id: persistentClient.id,
-        name: persistentClient.name,
-        email: persistentClient.email,
-        phone: persistentClient.phone,
+        id: effectiveClient.id,
+        name: effectiveClient.name,
+        email: effectiveClient.email,
+        phone: effectiveClient.phone,
       },
       dbPersisted: dbSuccess,
     });
@@ -324,20 +339,18 @@ export async function GET(req: Request) {
     const limit = limitParam ? parseInt(limitParam, 10) : 50;
 
     let dbApts: any[] = [];
+    let dbOk = false;
     try {
       dbApts = await prisma.appointment.findMany({
         take: limit,
         orderBy: { date: "desc" },
         include: { service: true, user: true, barber: true },
       });
+      dbOk = true;
     } catch (_) {}
 
-    const memApts = getAllStoredAppointments();
-    const map = new Map<string, any>();
-    memApts.forEach((a) => map.set(a.id, a));
-    (dbApts || []).forEach((a) => map.set(a.id, a));
-
-    const finalApts = Array.from(map.values())
+    const rawApts = dbOk ? dbApts : getAllStoredAppointments();
+    const finalApts = (rawApts || [])
       .filter((a) => !a.id?.includes("almir") && !a.user?.name?.toLowerCase().includes("almir"))
       .sort((a: any, b: any) => new Date(b.date).getTime() - new Date(a.date).getTime())
       .slice(0, limit);

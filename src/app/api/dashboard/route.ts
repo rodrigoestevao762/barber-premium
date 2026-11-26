@@ -58,23 +58,8 @@ export async function GET(req: Request) {
 
         const dbApts: any[] = clientUser?.appointments || [];
 
-        const memApts: any[] = getAllStoredAppointments().filter(
-          (a: any) =>
-            (clientUser && a.user?.id === clientUser.id) ||
-            (userId && a.user?.id === userId) ||
-            (userEmail && a.user?.email?.toLowerCase() === userEmail) ||
-            (userPhone && a.user?.phone?.replace(/\D/g, "").includes(userPhone)) ||
-            (userPhone && a.user?.phone && userPhone.includes(a.user.phone.replace(/\D/g, "")))
-        );
-
-        const map = new Map<string, any>();
-        dbApts.forEach((a: any) => map.set(a.id, a));
-        memApts.forEach((a: any) => {
-          if (!map.has(a.id)) map.set(a.id, a);
-        });
-
         const appointments = await enrichAppointmentsWithAddons(
-          Array.from(map.values())
+          dbApts
             .filter((a) => !a.id?.includes("almir") && !a.user?.name?.toLowerCase().includes("almir"))
             .sort((a: any, b: any) => new Date(b.date).getTime() - new Date(a.date).getTime())
         );
@@ -120,6 +105,7 @@ export async function GET(req: Request) {
 
     let allDayAppointments: any[] = [];
     let upcomingAppointments: any[] = [];
+    let dbOk = false;
 
     try {
       const dbAppointments = await prisma.appointment.findMany({
@@ -130,54 +116,42 @@ export async function GET(req: Request) {
         orderBy: { date: "asc" },
       });
 
-      const memAppointments = getAppointmentsForDate(dateParam, null);
-      
-      const map = new Map<string, any>();
-      (dbAppointments || []).forEach((a) => map.set(a.id, a));
-      (memAppointments || []).forEach((a) => {
-        if (!map.has(a.id)) map.set(a.id, a);
-      });
-      allDayAppointments = Array.from(map.values()).filter(
+      allDayAppointments = (dbAppointments || []).filter(
         (a) => !a.id?.includes("almir") && !a.user?.name?.toLowerCase().includes("almir")
       );
 
-      upcomingAppointments = await prisma.appointment.findMany({
-        where: {
-          date: { gte: new Date() },
-          status: { in: ["PENDING", "CONFIRMED"] },
-        },
-        include: { service: true, user: true, barber: true },
-        orderBy: { date: "asc" },
-        take: 10,
-      });
+      upcomingAppointments = (
+        await prisma.appointment.findMany({
+          where: {
+            date: { gte: new Date() },
+            status: { in: ["PENDING", "CONFIRMED"] },
+          },
+          include: { service: true, user: true, barber: true },
+          orderBy: { date: "asc" },
+          take: 20,
+        })
+      ).filter((a) => !a.id?.includes("almir") && !a.user?.name?.toLowerCase().includes("almir"));
 
+      dbOk = true;
     } catch (dbErr) {
       allDayAppointments = getAppointmentsForDate(dateParam, null).filter(
         (a) => !a.id?.includes("almir") && !a.user?.name?.toLowerCase().includes("almir")
       );
     }
 
-    // Garante que agendamentos confirmados em memória também alimentem os próximos agendamentos (merge completo)
-    const memAll = getAllStoredAppointments();
-    const minTimestamp = Date.now() - 30 * 60 * 1000;
-    const memUpcoming = memAll
-      .filter((a) => 
-        (a.status === 'PENDING' || a.status === 'CONFIRMED') && 
-        new Date(a.date).getTime() >= minTimestamp &&
-        !a.id?.includes('almir') && 
-        !a.user?.name?.toLowerCase().includes('almir')
-      )
-      .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
-
-    const upcomingMap = new Map<string, any>();
-    (upcomingAppointments || []).forEach((a: any) => upcomingMap.set(a.id, a));
-    memUpcoming.forEach((a: any) => {
-      if (!upcomingMap.has(a.id)) upcomingMap.set(a.id, a);
-    });
-    upcomingAppointments = Array.from(upcomingMap.values())
-      .filter((a: any) => !a.id?.includes('almir') && !a.user?.name?.toLowerCase().includes('almir'))
-      .sort((a: any, b: any) => new Date(a.date).getTime() - new Date(b.date).getTime())
-      .slice(0, 20);
+    if (!dbOk) {
+      const memAll = getAllStoredAppointments();
+      const minTimestamp = Date.now() - 30 * 60 * 1000;
+      upcomingAppointments = memAll
+        .filter((a) =>
+          (a.status === 'PENDING' || a.status === 'CONFIRMED') &&
+          new Date(a.date).getTime() >= minTimestamp &&
+          !a.id?.includes('almir') &&
+          !a.user?.name?.toLowerCase().includes('almir')
+        )
+        .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
+        .slice(0, 20);
+    }
 
     // Como Lucas Augusto trabalha sozinho, 100% da receita é dele / do Studio
     const soloBarber = BARBERS[0];

@@ -81,7 +81,7 @@ async function fetchAppointmentsForRange(
   end: Date,
   filterFn: (brazilDateStr: string) => boolean
 ): Promise<any[]> {
-  const map = new Map<string, any>();
+  let dbOk = false;
 
   try {
     const dbAppointments = await prisma.appointment.findMany({
@@ -91,22 +91,21 @@ async function fetchAppointmentsForRange(
       include: { service: true, user: true, barber: true },
       orderBy: { date: "asc" },
     });
-    (dbAppointments || []).forEach((a) => {
-      if (isValidAppointment(a)) map.set(a.id, a);
-    });
+    dbOk = true;
+    return (dbAppointments || []).filter((a) => isValidAppointment(a));
   } catch (err) {
     console.warn("Aviso ao consultar agendamentos mensais no Postgres:", err);
   }
 
-  getAllStoredAppointments().forEach((a) => {
-    if (!isValidAppointment(a)) return;
-    const { date: brazilDateStr } = getBrazilDateAndTimeString(a.date);
-    if (filterFn(brazilDateStr) && !map.has(a.id)) {
-      map.set(a.id, a);
-    }
-  });
+  if (!dbOk) {
+    return getAllStoredAppointments().filter((a) => {
+      if (!isValidAppointment(a)) return false;
+      const { date: brazilDateStr } = getBrazilDateAndTimeString(a.date);
+      return filterFn(brazilDateStr);
+    });
+  }
 
-  return Array.from(map.values());
+  return [];
 }
 
 /**
