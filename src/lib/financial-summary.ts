@@ -1,5 +1,6 @@
 import prisma from "@/lib/prisma";
 import { getAllStoredAppointments } from "@/lib/appointments-store";
+import { enrichAppointmentsWithAddons, getAppointmentTotalPrice } from "@/lib/appointment-addons";
 import { getBrazilDateAndTimeString } from "@/lib/timezone";
 import {
   getDayRangeBrazil,
@@ -116,10 +117,12 @@ export async function getMonthlyFinancialSummary(
 ): Promise<MonthlyFinancialSummary> {
   const { monthStr: targetMonth, start, end, monthLabel } = getMonthRangeBrazil(monthStr);
 
-  const [monthAppointments, monthExpenses] = await Promise.all([
+  const [rawMonthAppointments, monthExpenses] = await Promise.all([
     fetchAppointmentsForRange(start, end, (d) => d.startsWith(targetMonth)),
     listExpenses({ monthStr: targetMonth }),
   ]);
+
+  const monthAppointments = await enrichAppointmentsWithAddons(rawMonthAppointments);
 
   const [yearNum, monthNum] = targetMonth.split("-").map(Number);
   const lastDayNum = new Date(yearNum, monthNum, 0).getDate();
@@ -155,7 +158,7 @@ export async function getMonthlyFinancialSummary(
   let pendingRevenue = 0;
 
   for (const apt of monthAppointments) {
-    const price = Number(apt.service?.price || 0);
+    const price = getAppointmentTotalPrice(apt);
     const { date: aptDay } = getBrazilDateAndTimeString(apt.date);
     if (!aptDay.startsWith(targetMonth)) continue;
 
@@ -256,12 +259,13 @@ export async function getMonthlyFinancialSummary(
       };
     } else {
       const { dateStr: safeDay, start: dStart, end: dEnd } = getDayRangeBrazil(dayStr);
-      const [dayApts, dayExpenses] = await Promise.all([
+      const [rawDayApts, dayExpenses] = await Promise.all([
         fetchAppointmentsForRange(dStart, dEnd, (d) => d === safeDay),
         listExpenses({ dateStr: safeDay }),
       ]);
+      const dayApts = await enrichAppointmentsWithAddons(rawDayApts);
       const dayCompletedApts = dayApts.filter((a) => a.status === "COMPLETED");
-      const dayGross = dayCompletedApts.reduce((acc, a) => acc + Number(a.service?.price || 0), 0);
+      const dayGross = dayCompletedApts.reduce((acc, a) => acc + getAppointmentTotalPrice(a), 0);
       const dayExpTotal = dayExpenses.reduce((acc, e) => acc + e.amount, 0);
 
       summary.selectedDay = {

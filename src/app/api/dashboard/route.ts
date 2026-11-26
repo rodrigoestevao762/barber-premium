@@ -13,6 +13,7 @@ import {
 } from '@/lib/appointments-store';
 import { parseBrazilDateTime } from '@/lib/timezone';
 import { getMonthlyFinancialSummary } from '@/lib/financial-summary';
+import { enrichAppointmentsWithAddons, getAppointmentTotalPrice } from '@/lib/appointment-addons';
 
 export const dynamic = 'force-dynamic';
 
@@ -72,9 +73,11 @@ export async function GET(req: Request) {
           if (!map.has(a.id)) map.set(a.id, a);
         });
 
-        const appointments = Array.from(map.values())
-          .filter((a) => !a.id?.includes("almir") && !a.user?.name?.toLowerCase().includes("almir"))
-          .sort((a: any, b: any) => new Date(b.date).getTime() - new Date(a.date).getTime());
+        const appointments = await enrichAppointmentsWithAddons(
+          Array.from(map.values())
+            .filter((a) => !a.id?.includes("almir") && !a.user?.name?.toLowerCase().includes("almir"))
+            .sort((a: any, b: any) => new Date(b.date).getTime() - new Date(a.date).getTime())
+        );
 
         const effectiveClient = {
           id: clientUser?.id || userId || "client-id",
@@ -178,11 +181,13 @@ export async function GET(req: Request) {
 
     // Como Lucas Augusto trabalha sozinho, 100% da receita é dele / do Studio
     const soloBarber = BARBERS[0];
+    allDayAppointments = await enrichAppointmentsWithAddons(allDayAppointments);
+    upcomingAppointments = await enrichAppointmentsWithAddons(upcomingAppointments);
     const bApts = allDayAppointments;
 
     const monthlySummaryData = await getMonthlyFinancialSummary(dateParam.slice(0, 7), dateParam);
     const completedList = bApts.filter((apt) => apt.status === "COMPLETED");
-    const totalGrossRevenue = completedList.reduce((acc, apt) => acc + (apt.service?.price || 0), 0);
+    const totalGrossRevenue = completedList.reduce((acc, apt) => acc + getAppointmentTotalPrice(apt), 0);
     const ticketMedio = completedList.length > 0 ? totalGrossRevenue / completedList.length : 0;
 
     const breakdown = [

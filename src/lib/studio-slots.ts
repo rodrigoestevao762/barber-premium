@@ -1,3 +1,5 @@
+import { getBrazilNow } from "@/lib/timezone";
+
 export const WEEKDAY_HOURS = [
   "08:30",
   "09:00",
@@ -57,8 +59,6 @@ export function getSlotWindowEndMinutes(slot: string, orderedSlots: string[]): n
 
 /**
  * Verifica se um agendamento/balcão registrado às `bookedHHMM` ocupa o slot oficial `slot`.
- * Se `bookedHHMM` for exato ("14:00") ou intermediário dentro da janela do slot ("14:25"),
- * bloqueia o slot correspondente na agenda sem afetar o slot seguinte.
  */
 export function doesBookingOccupySlot(
   bookedHHMM: string,
@@ -76,22 +76,23 @@ export function doesBookingOccupySlot(
 }
 
 /**
- * Sugere o melhor horário inicial da grade para o Cliente Balcão com base no horário atual.
+ * Sugere o primeiro horário livre e futuro da grade para o Cliente Balcão.
  */
-export function getDefaultWalkInSlot(dateStr?: string): string {
-  const d = new Date();
-  const nowMinutes = d.getHours() * 60 + d.getMinutes();
-  const slots = dateStr ? getBaseSlotsForDate(dateStr) : WEEKDAY_HOURS;
-  if (slots.length === 0) return "09:00";
+export function getDefaultWalkInSlot(dateStr?: string, availableTimes?: string[]): string {
+  if (availableTimes) {
+    return availableTimes[0] || "";
+  }
 
-  // Encontra o slot cuja janela contém a hora atual, ou o próximo mais próximo
-  const currentSlot = slots.find((slot) => {
-    const start = toMinutes(slot);
-    const end = getSlotWindowEndMinutes(slot, slots);
-    return nowMinutes >= start && nowMinutes < end;
-  });
-  if (currentSlot) return currentSlot;
+  const nowBr = getBrazilNow();
+  const targetDate = dateStr ? dateStr.substring(0, 10) : nowBr.date;
+  const slots = getBaseSlotsForDate(targetDate);
+  if (slots.length === 0) return "";
 
-  const nextSlot = slots.find((slot) => toMinutes(slot) >= nowMinutes);
-  return nextSlot || slots[slots.length - 1];
+  if (targetDate < nowBr.date) return "";
+  if (targetDate === nowBr.date) {
+    const futureSlot = slots.find((slot) => toMinutes(slot) > toMinutes(nowBr.time));
+    return futureSlot || "";
+  }
+
+  return slots[0];
 }

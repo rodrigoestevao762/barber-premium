@@ -164,6 +164,7 @@ export default function FinanceiroPage() {
   const [walkInClientName, setWalkInClientName] = useState<string>("Cliente Balcão");
   const [walkInDate, setWalkInDate] = useState<string>(getTodayDateStr);
   const [walkInTime, setWalkInTime] = useState<string>(() => getDefaultWalkInSlot());
+  const [isWalkInTimeValid, setIsWalkInTimeValid] = useState(true);
   const [walkInStatus, setWalkInStatus] = useState<"COMPLETED" | "CONFIRMED">("COMPLETED");
   const [paymentMethod, setPaymentMethod] = useState<string>("PIX");
   const [toastMessage, setToastMessage] = useState<string | null>(null);
@@ -255,6 +256,11 @@ export default function FinanceiroPage() {
     const targetDay = walkInDate || (viewMode === "daily" ? selectedDate : getTodayDateStr());
     const targetTime = walkInTime || getDefaultWalkInSlot(targetDay);
 
+    if (!isWalkInTimeValid || !targetTime) {
+      alert("Escolha uma data e horário futuros disponíveis na agenda.");
+      return;
+    }
+
     if (viewMode === "daily" && isCaixaClosed && targetDay === selectedDate) {
       alert("O caixa deste dia está fechado. Reabra o caixa para registrar novos atendimentos.");
       return;
@@ -280,7 +286,8 @@ export default function FinanceiroPage() {
       });
 
       if (!res.ok) {
-        throw new Error("Falha ao registrar serviço");
+        const errData = await res.json().catch(() => ({}));
+        throw new Error(errData?.error || "Falha ao registrar serviço");
       }
 
       setIsWalkInModalOpen(false);
@@ -290,9 +297,9 @@ export default function FinanceiroPage() {
           ? `Ritual "${chosenService.name}" (R$ ${chosenService.price.toFixed(2)}) às ${targetTime} lançado no caixa e bloqueado na agenda!`
           : `Cliente Balcão agendado às ${targetTime} e horário indisponibilizado na agenda!`
       );
-    } catch (e) {
+    } catch (e: any) {
       console.error("Erro ao registrar atendimento balcão:", e);
-      alert("Erro ao registrar atendimento no caixa.");
+      alert(e?.message || "Erro ao registrar atendimento no caixa.");
     } finally {
       setIsSubmitting(false);
     }
@@ -1611,6 +1618,7 @@ export default function FinanceiroPage() {
                         time={walkInTime}
                         onDateChange={setWalkInDate}
                         onTimeChange={setWalkInTime}
+                        onValidityChange={setIsWalkInTimeValid}
                       />
 
                       <div className="grid grid-cols-2 gap-2">
@@ -1701,9 +1709,9 @@ export default function FinanceiroPage() {
                     return (
                       <button
                         type="button"
-                        disabled={isSubmitting}
+                        disabled={isSubmitting || !isWalkInTimeValid || !walkInTime}
                         onClick={handleRegisterWalkIn}
-                        className="w-full py-4 rounded-xl bg-gradient-to-r from-[#F5D799] via-[#DFBA73] to-[#B88B38] text-black font-bold text-xs uppercase font-mono tracking-wider transition-all duration-300 shadow-xl shadow-[#DFBA73]/20 flex items-center justify-center gap-2 disabled:opacity-50 cursor-pointer hover:brightness-110"
+                        className="w-full py-4 rounded-xl bg-gradient-to-r from-[#F5D799] via-[#DFBA73] to-[#B88B38] text-black font-bold text-xs uppercase font-mono tracking-wider transition-all duration-300 shadow-xl shadow-[#DFBA73]/20 flex items-center justify-center gap-2 disabled:opacity-45 disabled:cursor-not-allowed cursor-pointer hover:brightness-110"
                       >
                         {isSubmitting ? (
                           <>

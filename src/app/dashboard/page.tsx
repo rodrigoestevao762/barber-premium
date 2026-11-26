@@ -6,7 +6,7 @@ import {
   TrendingUp, TrendingDown, Users, UserPlus, Clock, ChevronRight, CheckCircle, Clock3, X, 
   Shield, DollarSign, Wallet, Award, ArrowUpRight, Lock, CreditCard, Banknote, 
   Sparkles, Calendar, Power, CheckCircle2, MessageCircle, AlertCircle, Edit3, 
-  Send, UserCheck, ShieldCheck
+  Send, UserCheck, ShieldCheck, Plus
 } from "lucide-react";
 import { useEffect, useState } from "react";
 import Image from "next/image";
@@ -16,6 +16,7 @@ import { OFFICIAL_SERVICES, ServiceItem } from "@/lib/services";
 import { getDisplayTime } from "@/lib/timezone";
 import { LunchBreakControl } from "@/components/LunchBreakControl";
 import { WalkInTimePicker } from "@/components/WalkInTimePicker";
+import { ExtraServiceModal } from "@/components/ExtraServiceModal";
 import { getDefaultWalkInSlot } from "@/lib/studio-slots";
 
 export default function DashboardPage() {
@@ -46,9 +47,11 @@ export default function DashboardPage() {
     return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
   });
   const [walkInTime, setWalkInTime] = useState<string>(() => getDefaultWalkInSlot());
+  const [isWalkInTimeValid, setIsWalkInTimeValid] = useState(true);
   const [walkInStatus, setWalkInStatus] = useState<"COMPLETED" | "CONFIRMED">("COMPLETED");
   const [paymentMethod, setPaymentMethod] = useState<string>("PIX");
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [extraServiceApt, setExtraServiceApt] = useState<any | null>(null);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
 
   useEffect(() => {
@@ -287,12 +290,17 @@ export default function DashboardPage() {
   };
 
   const submitWalkIn = async (overrideServiceId?: string) => {
+    const serviceToUse = OFFICIAL_SERVICES.find(s => s.id === (overrideServiceId || selectedServiceId)) || OFFICIAL_SERVICES[0];
+    const targetDate = walkInDate || selectedDate;
+    const targetTime = walkInTime || getDefaultWalkInSlot(targetDate);
+
+    if (!isWalkInTimeValid || !targetTime) {
+      setToastMessage("Escolha uma data e horário futuros disponíveis na agenda.");
+      return;
+    }
+
     setIsSubmitting(true);
     try {
-      const serviceToUse = OFFICIAL_SERVICES.find(s => s.id === (overrideServiceId || selectedServiceId)) || OFFICIAL_SERVICES[0];
-      const targetDate = walkInDate || selectedDate;
-      const targetTime = walkInTime || getDefaultWalkInSlot(targetDate);
-
       const res = await fetch('/api/appointments', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -318,9 +326,13 @@ export default function DashboardPage() {
             ? `Atendimento de R$ ${serviceToUse.price.toFixed(2)} às ${targetTime} lançado no caixa e bloqueado na agenda!`
             : `Cliente Balcão marcado às ${targetTime} e horário indisponibilizado na agenda!`
         );
+      } else {
+        const errData = await res.json().catch(() => ({}));
+        setToastMessage(errData?.error || "Horário indisponível ou já agendado.");
       }
     } catch (e) {
       console.error("Erro ao registrar balcão:", e);
+      setToastMessage("Erro ao registrar cliente balcão.");
     } finally {
       setIsSubmitting(false);
     }
@@ -558,11 +570,18 @@ export default function DashboardPage() {
                     {nextApt.user?.name || nextApt.clientName || 'Cliente'}
                   </strong>
                   <span className="text-gray-200 font-light">
-                    {' '}em {new Date(nextApt.date).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' })} às {getDisplayTime(nextApt.date)} ({nextApt.service?.name})
+                    {' '}em {new Date(nextApt.date).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' })} às {getDisplayTime(nextApt.date)} ({nextApt.service?.name}
+                    {Array.isArray(nextApt.addons) && nextApt.addons.length > 0
+                      ? ` + ${nextApt.addons.map((a: any) => a.serviceName).join(" + ")}`
+                      : ""}
+                    )
                   </span>
                 </p>
                 
-                <div className="flex items-center gap-4 text-xs text-gray-400 font-mono mt-2 flex-wrap">
+                <div className="flex items-center gap-3 text-xs text-gray-400 font-mono mt-2 flex-wrap">
+                  <span className="flex items-center gap-1.5 bg-[#DFBA73]/15 text-[#F5D799] px-2.5 py-1 rounded-lg border border-[#DFBA73]/30 font-bold">
+                    <DollarSign className="w-3.5 h-3.5" /> Total: R$ {Number(nextApt.totalPrice ?? nextApt.service?.price ?? 0).toFixed(2).replace(".", ",")}
+                  </span>
                   {nextApt.paymentMethod && (
                     <span className="flex items-center gap-1.5 bg-white/5 px-2.5 py-1 rounded-lg border border-white/10">
                       <CreditCard className="w-3.5 h-3.5 text-[#DFBA73]" /> Pagamento: <strong className="text-white">{nextApt.paymentMethod}</strong>
@@ -591,6 +610,14 @@ export default function DashboardPage() {
                   <MessageCircle className="w-4 h-4" /> WhatsApp
                 </a>
               )}
+
+              <button
+                type="button"
+                onClick={() => setExtraServiceApt(nextApt)}
+                className="px-4 py-3 rounded-xl bg-white/5 border border-[#DFBA73]/35 hover:bg-[#DFBA73]/15 text-[#F5D799] transition-all text-xs font-mono font-bold uppercase tracking-wider flex items-center gap-1.5 cursor-pointer"
+              >
+                <Plus className="w-4 h-4" /> Serviço Extra
+              </button>
 
               <button
                 onClick={() => updateStatus(nextApt.id, 'COMPLETED')}
@@ -891,7 +918,8 @@ export default function DashboardPage() {
           <div className="grid gap-3.5">
             {dashboardData.appointments.map((apt: any) => {
               const aptTime = getDisplayTime(apt.date);
-              const cutPrice = Number(apt.service?.price || 0);
+              const addons = Array.isArray(apt.addons) ? apt.addons : [];
+              const cutPrice = Number(apt.totalPrice ?? apt.service?.price ?? 0);
 
               return (
                 <div 
@@ -923,10 +951,22 @@ export default function DashboardPage() {
                       <div className="flex items-center gap-3 text-xs text-gray-400 mt-1 flex-wrap">
                         <span className="text-gray-200 font-medium">{apt.service?.name}</span>
                         <span>•</span>
-                        <span className="text-[#DFBA73] font-mono font-bold">R$ {cutPrice}</span>
+                        <span className="text-[#DFBA73] font-mono font-bold">R$ {cutPrice.toFixed(2).replace(".", ",")}</span>
                         <span>•</span>
                         <span className="text-gray-500 font-mono">{apt.user?.phone || "Sem tel"}</span>
                       </div>
+                      {addons.length > 0 && (
+                        <div className="flex items-center gap-1.5 flex-wrap mt-2">
+                          {addons.map((addon: any) => (
+                            <span
+                              key={addon.id}
+                              className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-[#DFBA73]/12 border border-[#DFBA73]/30 text-[10px] font-mono text-[#F5D799]"
+                            >
+                              + {addon.serviceName} (R$ {Number(addon.price || 0).toFixed(0)})
+                            </span>
+                          ))}
+                        </div>
+                      )}
                     </div>
                   </div>
 
@@ -963,6 +1003,18 @@ export default function DashboardPage() {
 
                     {/* Ações */}
                     <div className="flex items-center gap-2 flex-wrap">
+                      {apt.status !== 'CANCELLED' && (
+                        <button
+                          type="button"
+                          onClick={() => setExtraServiceApt(apt)}
+                          className="px-2.5 py-1.5 rounded-lg bg-[#DFBA73]/10 hover:bg-[#DFBA73] hover:text-black border border-[#DFBA73]/30 text-[#F5D799] text-xs font-semibold transition-all flex items-center gap-1 shrink-0 cursor-pointer"
+                          title="Adicionar serviço extra (sobrancelha, hidratação, etc.)"
+                        >
+                          <Plus className="w-3.5 h-3.5" />
+                          <span>Serviço Extra</span>
+                        </button>
+                      )}
+
                       {apt.status === 'PENDING' && (
                         <button 
                           onClick={() => updateStatus(apt.id, 'CONFIRMED')} 
@@ -1089,6 +1141,7 @@ export default function DashboardPage() {
                 time={walkInTime}
                 onDateChange={setWalkInDate}
                 onTimeChange={setWalkInTime}
+                onValidityChange={setIsWalkInTimeValid}
               />
 
               <div>
@@ -1145,12 +1198,14 @@ export default function DashboardPage() {
 
               <button
                 type="button"
-                disabled={isSubmitting}
+                disabled={isSubmitting || !isWalkInTimeValid || !walkInTime}
                 onClick={() => submitWalkIn()}
-                className="w-full py-4 bg-gradient-to-r from-[#F5D799] via-[#DFBA73] to-[#B88B38] text-black font-bold uppercase tracking-widest text-xs rounded-xl mt-4 transition-all shadow-lg shadow-[#DFBA73]/25 cursor-pointer hover:brightness-110"
+                className="w-full py-4 bg-gradient-to-r from-[#F5D799] via-[#DFBA73] to-[#B88B38] text-black font-bold uppercase tracking-widest text-xs rounded-xl mt-4 transition-all shadow-lg shadow-[#DFBA73]/25 cursor-pointer hover:brightness-110 disabled:opacity-45 disabled:cursor-not-allowed"
               >
                 {isSubmitting
                   ? "Salvando..."
+                  : !walkInTime
+                  ? "Sem horários disponíveis nesta data"
                   : walkInStatus === "COMPLETED"
                   ? `Confirmar R$ ${activeChosenService.price} às ${walkInTime}`
                   : `Reservar Horário ${walkInTime} na Agenda`}
@@ -1306,6 +1361,15 @@ export default function DashboardPage() {
           </div>
         )}
       </AnimatePresence>
+
+      <ExtraServiceModal
+        appointment={extraServiceApt}
+        onClose={() => setExtraServiceApt(null)}
+        onUpdated={async (msg) => {
+          await fetchDashboard();
+          if (msg) setToastMessage(msg);
+        }}
+      />
     </div>
   );
 }

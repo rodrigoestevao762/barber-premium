@@ -8,6 +8,7 @@ import {
   WEEKDAY_HOURS,
   SATURDAY_HOURS,
   doesBookingOccupySlot,
+  toMinutes,
 } from "@/lib/studio-slots";
 
 export const dynamic = "force-dynamic";
@@ -30,10 +31,19 @@ export async function GET(req: Request) {
     }
 
     const cleanDateStr = dateParam.substring(0, 10);
-
-    // 1. Verificação de Domingo
+    const brazilNow = getBrazilNow();
     const dayStatus = checkDayStatus(cleanDateStr);
-    if (dayStatus.isSunday && !includePast) {
+    const schedule = await getDayScheduleDB(cleanDateStr);
+
+    const [yStr, mStr, dStr] = cleanDateStr.split("-");
+    const dateObj = new Date(
+      Date.UTC(parseInt(yStr, 10), parseInt(mStr, 10) - 1, parseInt(dStr, 10), 12, 0, 0)
+    );
+    const dayOfWeek = dateObj.getUTCDay();
+    const orderedDaySlots = dayOfWeek === 6 ? [...SATURDAY_HOURS] : [...WEEKDAY_HOURS];
+
+    // Se for Domingo ou fechado (quando não é modo admin includePast), retorna vazio imediatamente
+    if (dayStatus.isSunday) {
       return jsonNoStore({
         availableTimes: [],
         isClosed: true,
@@ -41,19 +51,39 @@ export async function GET(req: Request) {
         isHoliday: false,
         isStudioClosed: false,
         reason: dayStatus.reason,
+        ...(includePast
+          ? {
+              baseSlots: [],
+              occupiedSlots: [],
+              pastSlots: [],
+              bookedTimes: [],
+              todayDate: brazilNow.date,
+              currentTime: brazilNow.time,
+              lunchBreakSlots: [],
+            }
+          : {}),
       });
     }
 
-    const brazilNow = getBrazilNow();
-
-    // 2. Se a data for no passado (antes de hoje no Brasil), não há horários livres para clientes online
-    if (cleanDateStr < brazilNow.date && !includePast) {
-      return jsonNoStore({ availableTimes: [] });
+    if (cleanDateStr < brazilNow.date) {
+      return jsonNoStore({
+        availableTimes: [],
+        ...(includePast
+          ? {
+              baseSlots: orderedDaySlots,
+              occupiedSlots: [],
+              pastSlots: orderedDaySlots,
+              bookedTimes: [],
+              todayDate: brazilNow.date,
+              currentTime: brazilNow.time,
+              isClosed: false,
+              lunchBreakSlots: schedule.lunchBreakSlots,
+            }
+          : {}),
+      });
     }
 
-    // 2.1 Busca configuração oficial da escala e pausa para almoço no PostgreSQL
-    const schedule = await getDayScheduleDB(cleanDateStr);
-    if (schedule.isClosed && !includePast) {
+    if (schedule.isClosed) {
       return jsonNoStore({
         availableTimes: [],
         isClosed: true,
@@ -61,41 +91,26 @@ export async function GET(req: Request) {
         isHoliday: false,
         isStudioClosed: true,
         reason: "O estúdio estará fechado nesta data pelo Master Barber Lucas Augusto.",
+        ...(includePast
+          ? {
+              baseSlots: orderedDaySlots,
+              occupiedSlots: [],
+              pastSlots: [],
+              bookedTimes: [],
+              todayDate: brazilNow.date,
+              currentTime: brazilNow.time,
+              lunchBreakSlots: schedule.lunchBreakSlots,
+            }
+          : {}),
       });
     }
 
-    // 3. Determina os horários base de acordo com o dia da semana
-    const [yStr, mStr, dStr] = cleanDateStr.split("-");
-    const dateObj = new Date(
-      Date.UTC(parseInt(yStr, 10), parseInt(mStr, 10) - 1, parseInt(dStr, 10), 12, 0, 0)
-    );
-    const dayOfWeek = dateObj.getUTCDay();
-
-    const orderedDaySlots = dayOfWeek === 6 ? [...SATURDAY_HOURS] : [...WEEKDAY_HOURS];
-    let baseHours = [...orderedDaySlots];
-
-    // 4. Verificação de Encerramento Antecipado
     const earlyClosingTime = schedule.earlyClosingTime;
-    if (earlyClosingTime && !includePast) {
-      baseHours = baseHours.filter((time) => time <= earlyClosingTime);
-    }
-
-    // 4.1 Verificação de Pausa para Almoço do Barbeiro
     const lunchBreakTime = schedule.lunchBreakTime;
     const lunchBreakSlots = schedule.lunchBreakSlots;
-    if (lunchBreakSlots.length > 0 && !includePast) {
-      baseHours = baseHours.filter((time) => !lunchBreakSlots.includes(time));
-    }
 
-    // 5. Se for o dia de hoje, remove horários que já passaram (apenas para visão pública)
-    if (cleanDateStr === brazilNow.date && !includePast) {
-      baseHours = baseHours.filter((time) => time > brazilNow.time);
-    }
-
-    // Intervalo do dia no fuso horário do Brasil (UTC-3)
     const startOfDay = new Date(`${cleanDateStr}T00:00:00-03:00`);
     const endOfDay = new Date(`${cleanDateStr}T23:59:59-03:00`);
-
     const bookedTimes: string[] = [];
 
     try {
@@ -110,9 +125,7 @@ export async function GET(req: Request) {
         const t = formatAptTimeToHHMM(apt.date);
         if (!bookedTimes.includes(t)) bookedTimes.push(t);
       });
-    } catch (_) {
-      // fallback segue abaixo com store em memória
-    }
+    } catch (_) {}
 
     const storedApts = getAppointmentsForDate(cleanDateStr, null);
     storedApts
@@ -124,13 +137,22 @@ export async function GET(req: Request) {
         }
       });
 
-    const availableTimes = baseHours.filter(
-      (slot) => !bookedTimes.some((bt) => doesBookingOccupySlot(bt, slot, orderedDaySlots))
-    );
+    const pastSlots =
+      cleanDateStr === brazilNow.date
+        ? orderedDaySlots.filter((slot) => toMinutes(slot) <= toMinutes(brazilNow.time))
+        : [];
 
     const occupiedSlots = orderedDaySlots.filter((slot) =>
       bookedTimes.some((bt) => doesBookingOccupySlot(bt, slot, orderedDaySlots))
     );
+
+    const availableTimes = orderedDaySlots.filter((slot) => {
+      if (earlyClosingTime && slot > earlyClosingTime) return false;
+      if (lunchBreakSlots.includes(slot)) return false;
+      if (pastSlots.includes(slot)) return false;
+      if (occupiedSlots.includes(slot)) return false;
+      return true;
+    });
 
     return jsonNoStore({
       availableTimes,
@@ -138,8 +160,11 @@ export async function GET(req: Request) {
         ? {
             baseSlots: orderedDaySlots,
             occupiedSlots,
+            pastSlots,
             bookedTimes,
-            isClosed: dayStatus.isSunday || schedule.isClosed,
+            todayDate: brazilNow.date,
+            currentTime: brazilNow.time,
+            isClosed: false,
           }
         : {}),
       isSaturday: dayOfWeek === 6,

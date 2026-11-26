@@ -3,7 +3,9 @@ import prisma from '@/lib/prisma';
 import bcrypt from 'bcryptjs';
 import { BARBERS, getBarberById } from '@/lib/barbers';
 import { OFFICIAL_SERVICES } from '@/lib/services';
-import { getAllStoredAppointments, getAppointmentsForDate, addStoredAppointment } from '@/lib/appointments-store';
+import { getServiceById } from '@/lib/services';
+import { addStoredAppointment, getAllStoredAppointments, getAppointmentsForDate } from '@/lib/appointments-store';
+import { enrichAppointmentsWithAddons } from '@/lib/appointment-addons';
 import { upsertStoredUser } from '@/lib/users-store';
 import { getBrazilNow, getBrazilDateAndTimeString, parseBrazilDateTime, formatAptTimeToHHMM } from '@/lib/timezone';
 import { checkDayStatusDB, getDayScheduleDB } from '@/lib/studio-schedule';
@@ -37,91 +39,85 @@ export async function POST(req: Request) {
     }
 
     // 2. Identifica o serviço oficial correspondente
-    const matchedService = OFFICIAL_SERVICES.find(
-      (s) => s.id === serviceId || s.name.toLowerCase() === String(serviceId).toLowerCase()
-    ) || OFFICIAL_SERVICES[0];
+    const matchedService = getServiceById(serviceId) || OFFICIAL_SERVICES[0];
 
-    // Validação estrita contra agendamentos no passado (fuso horário do Brasil)
+    // Validação estrita contra agendamentos no passado, horários fechados ou já ocupados (online e balcão)
     const appointmentDate = parseBrazilDateTime(date);
+    const requestedBrazil = getBrazilDateAndTimeString(appointmentDate);
 
-    if (!isWalkIn) {
-      const requestedBrazil = getBrazilDateAndTimeString(appointmentDate);
+    // 2.1 Validação de Domingo e Studio Fechado no Banco PostgreSQL
+    const dayCheck = await checkDayStatusDB(requestedBrazil.date);
+    if (dayCheck.isClosed) {
+      return NextResponse.json({ error: dayCheck.reason }, { status: 400 });
+    }
 
-      // 2.1 Validação de Domingo e Studio Fechado no Banco PostgreSQL
-      const dayCheck = await checkDayStatusDB(requestedBrazil.date);
-      if (dayCheck.isClosed) {
-        return NextResponse.json({ error: dayCheck.reason }, { status: 400 });
-      }
-
-      // 2.2 Validação de Escala Flexível, Saída Antecipada e Pausa para Almoço no Banco PostgreSQL
-      if (!isBarberAvailable(assignedBarber.id, requestedBrazil.date)) {
-        return NextResponse.json(
-          { error: "Este profissional não está disponível para agendamentos nesta data." },
-          { status: 400 }
-        );
-      }
-
-      const daySchedule = await getDayScheduleDB(requestedBrazil.date);
-      if (daySchedule.earlyClosingTime && requestedBrazil.time > daySchedule.earlyClosingTime) {
-        return NextResponse.json(
-          { error: `O estúdio encerrará o expediente às ${daySchedule.earlyClosingTime} nesta data.` },
-          { status: 400 }
-        );
-      }
-
-      if (daySchedule.lunchBreakSlots.includes(requestedBrazil.time)) {
-        return NextResponse.json(
-          { error: `O horário das ${requestedBrazil.time} está reservado para pausa de almoço.` },
-          { status: 400 }
-        );
-      }
-
-      const brazilNow = getBrazilNow();
-
-      const isPast =
-        requestedBrazil.date < brazilNow.date ||
-        (requestedBrazil.date === brazilNow.date && requestedBrazil.time <= brazilNow.time);
-
-      if (isPast) {
-        return NextResponse.json(
-          { error: "Não é possível agendar um horário que já passou. Por favor, escolha um horário futuro." },
-          { status: 400 }
-        );
-      }
-
-      // 2.3 Garante que o horário não tenha sido ocupado por agendamento online ou Cliente Balcão
-      const daySlots = getBaseSlotsForDate(requestedBrazil.date);
-      const startOfDay = new Date(`${requestedBrazil.date}T00:00:00-03:00`);
-      const endOfDay = new Date(`${requestedBrazil.date}T23:59:59-03:00`);
-      const existingTimes: string[] = [];
-
-      try {
-        const dbExisting = await prisma.appointment.findMany({
-          where: {
-            date: { gte: startOfDay, lte: endOfDay },
-            status: { notIn: ["CANCELLED"] },
-          },
-          select: { date: true },
-        });
-        dbExisting.forEach((a) => existingTimes.push(formatAptTimeToHHMM(a.date)));
-      } catch (_) {}
-
-      getAppointmentsForDate(requestedBrazil.date, null)
-        .filter((a) => a.status !== "CANCELLED")
-        .forEach((a) => existingTimes.push(formatAptTimeToHHMM(a.date)));
-
-      const isConflict = existingTimes.some(
-        (bt) =>
-          doesBookingOccupySlot(bt, requestedBrazil.time, daySlots) ||
-          doesBookingOccupySlot(requestedBrazil.time, bt, daySlots)
+    // 2.2 Validação de Escala Flexível, Saída Antecipada e Pausa para Almoço no Banco PostgreSQL
+    if (!isBarberAvailable(assignedBarber.id, requestedBrazil.date)) {
+      return NextResponse.json(
+        { error: "Este profissional não está disponível para agendamentos nesta data." },
+        { status: 400 }
       );
+    }
 
-      if (isConflict) {
-        return NextResponse.json(
-          { error: "Este horário já foi ocupado na agenda. Por favor, escolha outro horário disponível." },
-          { status: 409 }
-        );
-      }
+    const daySchedule = await getDayScheduleDB(requestedBrazil.date);
+    if (daySchedule.earlyClosingTime && requestedBrazil.time > daySchedule.earlyClosingTime) {
+      return NextResponse.json(
+        { error: `O estúdio encerrará o expediente às ${daySchedule.earlyClosingTime} nesta data.` },
+        { status: 400 }
+      );
+    }
+
+    if (daySchedule.lunchBreakSlots.includes(requestedBrazil.time)) {
+      return NextResponse.json(
+        { error: `O horário das ${requestedBrazil.time} está reservado para pausa de almoço.` },
+        { status: 400 }
+      );
+    }
+
+    const brazilNow = getBrazilNow();
+    const isPast =
+      requestedBrazil.date < brazilNow.date ||
+      (requestedBrazil.date === brazilNow.date && requestedBrazil.time <= brazilNow.time);
+
+    if (isPast) {
+      return NextResponse.json(
+        { error: "Não é possível selecionar um horário que já passou. Escolha um horário futuro disponível." },
+        { status: 400 }
+      );
+    }
+
+    // 2.3 Garante que o horário não tenha sido ocupado por outro cliente ou Cliente Balcão
+    const daySlots = getBaseSlotsForDate(requestedBrazil.date);
+    const startOfDay = new Date(`${requestedBrazil.date}T00:00:00-03:00`);
+    const endOfDay = new Date(`${requestedBrazil.date}T23:59:59-03:00`);
+    const existingTimes: string[] = [];
+
+    try {
+      const dbExisting = await prisma.appointment.findMany({
+        where: {
+          date: { gte: startOfDay, lte: endOfDay },
+          status: { notIn: ["CANCELLED"] },
+        },
+        select: { date: true },
+      });
+      dbExisting.forEach((a) => existingTimes.push(formatAptTimeToHHMM(a.date)));
+    } catch (_) {}
+
+    getAppointmentsForDate(requestedBrazil.date, null)
+      .filter((a) => a.status !== "CANCELLED")
+      .forEach((a) => existingTimes.push(formatAptTimeToHHMM(a.date)));
+
+    const isConflict = existingTimes.some(
+      (bt) =>
+        doesBookingOccupySlot(bt, requestedBrazil.time, daySlots) ||
+        doesBookingOccupySlot(requestedBrazil.time, bt, daySlots)
+    );
+
+    if (isConflict) {
+      return NextResponse.json(
+        { error: "Este horário já foi ocupado na agenda. Por favor, escolha outro horário disponível." },
+        { status: 409 }
+      );
     }
 
     const rawPhone = (clientPhone || "").trim();
@@ -346,7 +342,8 @@ export async function GET(req: Request) {
       .sort((a: any, b: any) => new Date(b.date).getTime() - new Date(a.date).getTime())
       .slice(0, limit);
 
-    return NextResponse.json(finalApts);
+    const enriched = await enrichAppointmentsWithAddons(finalApts);
+    return NextResponse.json(enriched);
   } catch (error) {
     console.error("Erro ao listar agendamentos:", error);
     return NextResponse.json({ error: "Erro ao buscar agendamentos" }, { status: 500 });

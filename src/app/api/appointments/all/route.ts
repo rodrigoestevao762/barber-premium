@@ -3,6 +3,7 @@ import prisma from '@/lib/prisma';
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { getAllStoredAppointments } from '@/lib/appointments-store';
+import { enrichAppointmentsWithAddons } from '@/lib/appointment-addons';
 
 export async function GET() {
   try {
@@ -47,7 +48,8 @@ export async function GET() {
        return apt;
     });
 
-    return NextResponse.json(appointmentsWithDuration);
+    const enriched = await enrichAppointmentsWithAddons(appointmentsWithDuration);
+    return NextResponse.json(enriched);
   } catch (error) {
     return NextResponse.json({ error: 'Erro ao buscar' }, { status: 500 });
   }

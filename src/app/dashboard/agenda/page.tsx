@@ -15,6 +15,7 @@ import { getDisplayTime, parseBrazilDateTime } from '@/lib/timezone';
 import { checkDayStatus } from '@/lib/holidays';
 import { LunchBreakControl } from '@/components/LunchBreakControl';
 import { WalkInTimePicker } from '@/components/WalkInTimePicker';
+import { ExtraServiceModal } from '@/components/ExtraServiceModal';
 import { getDefaultWalkInSlot } from '@/lib/studio-slots';
 
 export default function AgendaPage() {
@@ -61,9 +62,11 @@ export default function AgendaPage() {
   const [newClientPhone, setNewClientPhone] = useState("");
   const [newServiceId, setNewServiceId] = useState(OFFICIAL_SERVICES[0].id);
   const [newBarberId, setNewBarberId] = useState("barbeiro-lucas");
-  const [newTime, setNewTime] = useState("10:00");
+  const [newTime, setNewTime] = useState(() => getDefaultWalkInSlot());
+  const [isNewTimeValid, setIsNewTimeValid] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [createErrorMsg, setCreateErrorMsg] = useState("");
+  const [extraServiceApt, setExtraServiceApt] = useState<any | null>(null);
 
   // Modal Alterar / Editar Agendamento
   const [editingApt, setEditingApt] = useState<any | null>(null);
@@ -376,6 +379,12 @@ export default function AgendaPage() {
       return;
     }
 
+    if (!isNewTimeValid || !newTime) {
+      setCreateErrorMsg("Escolha uma data e horário futuros disponíveis na agenda.");
+      setIsSubmitting(false);
+      return;
+    }
+
     const fullDate = `${selectedDate}T${newTime}:00-03:00`;
 
     try {
@@ -669,7 +678,8 @@ export default function AgendaPage() {
           <div className="grid gap-3.5">
             {appointments.map((apt) => {
               const aptTime = getDisplayTime(apt.date);
-              const cutPrice = Number(apt.service?.price || 0);
+              const addons = Array.isArray(apt.addons) ? apt.addons : [];
+              const cutPrice = Number(apt.totalPrice ?? apt.service?.price ?? 0);
 
               return (
                 <div 
@@ -701,10 +711,22 @@ export default function AgendaPage() {
                       <div className="flex items-center gap-3 text-xs text-gray-400 mt-1 flex-wrap">
                         <span className="text-gray-200 font-medium">{apt.service?.name}</span>
                         <span>•</span>
-                        <span className="text-[#DFBA73] font-mono font-bold">R$ {cutPrice}</span>
+                        <span className="text-[#DFBA73] font-mono font-bold">R$ {cutPrice.toFixed(2).replace(".", ",")}</span>
                         <span>•</span>
                         <span className="text-gray-500 font-mono">{apt.user?.phone || "Sem tel"}</span>
                       </div>
+                      {addons.length > 0 && (
+                        <div className="flex items-center gap-1.5 flex-wrap mt-2">
+                          {addons.map((addon: any) => (
+                            <span
+                              key={addon.id}
+                              className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-[#DFBA73]/12 border border-[#DFBA73]/30 text-[10px] font-mono text-[#F5D799]"
+                            >
+                              + {addon.serviceName} (R$ {Number(addon.price || 0).toFixed(0)})
+                            </span>
+                          ))}
+                        </div>
+                      )}
                     </div>
                   </div>
 
@@ -741,6 +763,18 @@ export default function AgendaPage() {
 
                     {/* Ações do Barbeiro */}
                     <div className="flex items-center gap-2 flex-wrap">
+                      {apt.status !== 'CANCELLED' && (
+                        <button
+                          type="button"
+                          onClick={() => setExtraServiceApt(apt)}
+                          className="px-2.5 py-1.5 rounded-lg bg-[#DFBA73]/10 hover:bg-[#DFBA73] hover:text-black border border-[#DFBA73]/30 text-[#F5D799] text-xs font-semibold transition-all flex items-center gap-1 shrink-0 cursor-pointer"
+                          title="Adicionar serviço extra neste atendimento"
+                        >
+                          <Plus className="w-3.5 h-3.5" />
+                          <span>Serviço Extra</span>
+                        </button>
+                      )}
+
                       {apt.status !== 'CANCELLED' && (
                         <button
                           onClick={() => openEditModal(apt)}
@@ -1017,14 +1051,19 @@ export default function AgendaPage() {
                   time={newTime}
                   onDateChange={setSelectedDate}
                   onTimeChange={setNewTime}
+                  onValidityChange={setIsNewTimeValid}
                 />
 
                 <button
                   type="submit"
-                  disabled={isSubmitting}
-                  className="w-full py-4 bg-gradient-to-r from-[#F5D799] via-[#DFBA73] to-[#B88B38] text-black font-bold uppercase tracking-widest text-xs rounded-xl mt-4 transition-all shadow-lg shadow-[#DFBA73]/20 cursor-pointer hover:brightness-110"
+                  disabled={isSubmitting || !isNewTimeValid || !newTime}
+                  className="w-full py-4 bg-gradient-to-r from-[#F5D799] via-[#DFBA73] to-[#B88B38] text-black font-bold uppercase tracking-widest text-xs rounded-xl mt-4 transition-all shadow-lg shadow-[#DFBA73]/20 cursor-pointer hover:brightness-110 disabled:opacity-45 disabled:cursor-not-allowed"
                 >
-                  {isSubmitting ? "Agendando..." : "Salvar Agendamento no Balcão"}
+                  {isSubmitting
+                    ? "Agendando..."
+                    : !newTime
+                    ? "Sem horários disponíveis nesta data"
+                    : "Salvar Agendamento no Balcão"}
                 </button>
               </form>
             </motion.div>
@@ -1179,6 +1218,14 @@ export default function AgendaPage() {
         )}
       </AnimatePresence>
 
+      <ExtraServiceModal
+        appointment={extraServiceApt}
+        onClose={() => setExtraServiceApt(null)}
+        onUpdated={async (msg) => {
+          await fetchAgenda();
+          if (msg) setToastMessage(msg);
+        }}
+      />
     </div>
   );
 }
