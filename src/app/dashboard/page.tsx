@@ -51,6 +51,7 @@ export default function DashboardPage() {
   const [walkInStatus, setWalkInStatus] = useState<"COMPLETED" | "CONFIRMED">("COMPLETED");
   const [paymentMethod, setPaymentMethod] = useState<string>("PIX");
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [walkInError, setWalkInError] = useState<string | null>(null);
   const [extraServiceApt, setExtraServiceApt] = useState<any | null>(null);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
 
@@ -295,10 +296,11 @@ export default function DashboardPage() {
     const targetTime = walkInTime || getDefaultWalkInSlot(targetDate);
 
     if (!isWalkInTimeValid || !targetTime) {
-      setToastMessage("Escolha uma data e horário futuros disponíveis na agenda.");
+      setWalkInError("Escolha uma data e horário futuros disponíveis na agenda.");
       return;
     }
 
+    setWalkInError(null);
     setIsSubmitting(true);
     try {
       const res = await fetch('/api/appointments', {
@@ -311,16 +313,21 @@ export default function DashboardPage() {
           isWalkIn: true,
           status: walkInStatus,
           clientName: walkInClientName.trim() || "Cliente Balcão",
-          clientPhone: walkInClientPhone.trim() || "69993783204",
+          clientPhone: walkInClientPhone.trim() || null,
           paymentMethod,
         })
       });
 
       if (res.ok) {
         setIsModalOpen(false);
+        setWalkInError(null);
         setWalkInClientName("Cliente Balcão");
         setWalkInClientPhone("");
-        await fetchDashboard();
+        if (targetDate !== selectedDate) {
+          setSelectedDate(targetDate);
+        } else {
+          await fetchDashboard();
+        }
         setToastMessage(
           walkInStatus === "COMPLETED"
             ? `Atendimento de R$ ${serviceToUse.price.toFixed(2)} às ${targetTime} lançado no caixa e bloqueado na agenda!`
@@ -328,11 +335,11 @@ export default function DashboardPage() {
         );
       } else {
         const errData = await res.json().catch(() => ({}));
-        setToastMessage(errData?.error || "Horário indisponível ou já agendado.");
+        setWalkInError(errData?.error || "Horário indisponível ou erro ao salvar.");
       }
     } catch (e) {
       console.error("Erro ao registrar balcão:", e);
-      setToastMessage("Erro ao registrar cliente balcão.");
+      setWalkInError("Erro de conexão ao registrar cliente balcão.");
     } finally {
       setIsSubmitting(false);
     }
@@ -427,6 +434,7 @@ export default function DashboardPage() {
           <button 
             type="button"
             onClick={() => {
+              setWalkInError(null);
               setWalkInDate(selectedDate);
               setWalkInTime(getDefaultWalkInSlot(selectedDate));
               setWalkInStatus("COMPLETED");
@@ -1073,6 +1081,13 @@ export default function DashboardPage() {
             </div>
 
             <div className="space-y-4 overflow-y-auto pr-1 flex-1">
+              {walkInError && (
+                <div className="p-3 bg-rose-500/15 border border-rose-500/35 rounded-xl text-rose-300 text-xs flex items-center gap-2 font-mono">
+                  <AlertCircle className="w-4 h-4 shrink-0" />
+                  <span>{walkInError}</span>
+                </div>
+              )}
+
               <div>
                 <label className="block text-gray-400 text-xs uppercase tracking-wider mb-1 font-mono">
                   Nome do Cliente

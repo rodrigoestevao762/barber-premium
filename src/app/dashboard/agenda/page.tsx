@@ -397,7 +397,7 @@ export default function AgendaPage() {
           date: fullDate,
           clientName: newClientName.trim() || "Cliente Balcão",
           clientEmail: newClientEmail.trim().toLowerCase() || null,
-          clientPhone: newClientPhone.trim() || "69993783204",
+          clientPhone: newClientPhone.trim() || null,
           isWalkIn: true,
         }),
       });
@@ -407,7 +407,8 @@ export default function AgendaPage() {
         setNewClientName("");
         setNewClientEmail("");
         setNewClientPhone("");
-        fetchAgenda();
+        await fetchAgenda();
+        setToastMessage(`Cliente salvo em ${selectedDate.split("-").reverse().join("/")} às ${newTime} e horário bloqueado!`);
       } else {
         const data = await res.json();
         setCreateErrorMsg(data.error || "Erro ao agendar.");
@@ -989,10 +990,9 @@ export default function AgendaPage() {
                 {/* Telefone / WhatsApp */}
                 <div>
                   <label className="block text-gray-400 text-xs uppercase tracking-wider mb-1 font-mono">
-                    WhatsApp do Cliente *
+                    WhatsApp do Cliente (opcional)
                   </label>
                   <input 
-                    required 
                     type="text" 
                     placeholder="Ex: (69) 99378-3204"
                     value={newClientPhone}

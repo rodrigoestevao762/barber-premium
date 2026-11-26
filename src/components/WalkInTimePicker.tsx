@@ -90,7 +90,7 @@ export function WalkInTimePicker({
           Boolean(time) &&
           !data.isClosed &&
           date >= apiToday &&
-          !(date === apiToday && toMinutes(time) <= toMinutes(apiNow)) &&
+          !(date === apiToday && toMinutes(time) < toMinutes(apiNow)) &&
           !(data.earlyClosingTime && time > data.earlyClosingTime) &&
           !(Array.isArray(data.lunchBreakSlots) && data.lunchBreakSlots.includes(time)) &&
           !(Array.isArray(data.bookedTimes) &&
@@ -119,7 +119,7 @@ export function WalkInTimePicker({
   const isPastDate = Boolean(date && date < todayDate);
   const isSelectedPast =
     Boolean(time) &&
-    (isPastDate || (date === todayDate && toMinutes(time) <= toMinutes(currentTime)));
+    (isPastDate || (date === todayDate && toMinutes(time) < toMinutes(currentTime)));
   const isSelectedLunch = Boolean(time && lunchBreakSlots.includes(time));
   const isSelectedAfterClosing = Boolean(time && earlyClosingTime && time > earlyClosingTime);
   const isSelectedOccupied =
@@ -205,7 +205,7 @@ export function WalkInTimePicker({
                 const isSelected = time === slot;
                 const isPast =
                   pastSlots.includes(slot) ||
-                  (date === todayDate && toMinutes(slot) <= toMinutes(currentTime));
+                  (date === todayDate && toMinutes(slot) < toMinutes(currentTime));
                 const isOccupied = occupiedSlots.includes(slot);
                 const isLunch = lunchBreakSlots.includes(slot);
                 const isAfterClosing = Boolean(earlyClosingTime && slot > earlyClosingTime);

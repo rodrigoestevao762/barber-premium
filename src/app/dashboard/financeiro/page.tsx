@@ -25,6 +25,7 @@ import {
   Trash2,
   BarChart3,
   Clock,
+  AlertCircle,
 } from "lucide-react";
 import { BARBERS } from "@/lib/barbers";
 import { OFFICIAL_SERVICES } from "@/lib/services";
@@ -170,6 +171,7 @@ export default function FinanceiroPage() {
   const [isWalkInTimeValid, setIsWalkInTimeValid] = useState(true);
   const [walkInStatus, setWalkInStatus] = useState<"COMPLETED" | "CONFIRMED">("COMPLETED");
   const [paymentMethod, setPaymentMethod] = useState<string>("PIX");
+  const [walkInError, setWalkInError] = useState<string | null>(null);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
 
   useEffect(() => {
@@ -288,17 +290,18 @@ export default function FinanceiroPage() {
     const targetTime = walkInTime || getDefaultWalkInSlot(targetDay);
 
     if (!isWalkInTimeValid || !targetTime) {
-      alert("Escolha uma data e horário futuros disponíveis na agenda.");
+      setWalkInError("Escolha uma data e horário futuros disponíveis na agenda.");
       return;
     }
 
     if (viewMode === "daily" && isCaixaClosed && targetDay === selectedDate) {
-      alert("O caixa deste dia está fechado. Reabra o caixa para registrar novos atendimentos.");
+      setWalkInError("O caixa deste dia está fechado. Reabra o caixa para registrar novos atendimentos.");
       return;
     }
 
     const chosenService =
       OFFICIAL_SERVICES.find((s) => s.id === selectedServiceId) || OFFICIAL_SERVICES[0];
+    setWalkInError(null);
     setIsSubmitting(true);
 
     try {
@@ -322,6 +325,7 @@ export default function FinanceiroPage() {
       }
 
       setIsWalkInModalOpen(false);
+      setWalkInError(null);
       await loadFinancialData(selectedMonth, selectedDate);
       setToastMessage(
         walkInStatus === "COMPLETED"
@@ -330,7 +334,7 @@ export default function FinanceiroPage() {
       );
     } catch (e: any) {
       console.error("Erro ao registrar atendimento balcão:", e);
-      alert(e?.message || "Erro ao registrar atendimento no caixa.");
+      setWalkInError(e?.message || "Erro ao registrar atendimento no caixa.");
     } finally {
       setIsSubmitting(false);
     }
@@ -546,6 +550,7 @@ export default function FinanceiroPage() {
             type="button"
             onClick={() => {
               const targetDay = viewMode === "daily" ? selectedDate : getTodayDateStr();
+              setWalkInError(null);
               setWalkInDate(targetDay);
               setWalkInTime(getDefaultWalkInSlot(targetDay));
               setWalkInStatus("COMPLETED");
@@ -1606,6 +1611,13 @@ export default function FinanceiroPage() {
 
                 {/* Scroll Body */}
                 <div className="p-6 md:p-8 pt-4 overflow-y-auto space-y-5 relative z-10 flex-1">
+                  {walkInError && (
+                    <div className="p-3 bg-rose-500/15 border border-rose-500/35 rounded-xl text-rose-300 text-xs flex items-center gap-2 font-mono">
+                      <AlertCircle className="w-4 h-4 shrink-0" />
+                      <span>{walkInError}</span>
+                    </div>
+                  )}
+
                   <div>
                     <label className="block text-gray-400 text-xs uppercase font-mono tracking-wider mb-1.5 font-medium">
                       Nome do Cliente

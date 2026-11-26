@@ -77,7 +77,7 @@ export async function POST(req: Request) {
     const brazilNow = getBrazilNow();
     const isPast =
       requestedBrazil.date < brazilNow.date ||
-      (requestedBrazil.date === brazilNow.date && requestedBrazil.time <= brazilNow.time);
+      (requestedBrazil.date === brazilNow.date && requestedBrazil.time < brazilNow.time);
 
     if (isPast) {
       return NextResponse.json(
@@ -127,10 +127,15 @@ export async function POST(req: Request) {
     }
 
     const rawPhone = (clientPhone || "").trim();
-    const cleanPhone = rawPhone.replace(/\D/g, "");
+    const cleanPhoneRaw = rawPhone.replace(/\D/g, "");
+    // Nunca vincular Cliente Balcão sem telefone ao telefone padrão do estúdio/Lucas Augusto
+    const isStudioPlaceholderPhone =
+      Boolean(isWalkIn) &&
+      (cleanPhoneRaw === "69993783204" || cleanPhoneRaw === "5569993783204");
+    const cleanPhone = isStudioPlaceholderPhone ? "" : cleanPhoneRaw;
     const formattedEmail = clientEmail ? clientEmail.trim().toLowerCase() : null;
     const finalPassword = clientPassword?.trim() || Math.random().toString(36).slice(-8);
-    const resolvedName = clientName?.trim() || "Cliente VIP";
+    const resolvedName = clientName?.trim() || (isWalkIn ? "Cliente Balcão" : "Cliente VIP");
     const newAppointmentId = `apt-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`;
 
     // 3. PERSISTÊNCIA PRIMÁRIA NO BANCO POSTGRESQL (evita sujeira em /tmp quando DB está online)
@@ -179,38 +184,72 @@ export async function POST(req: Request) {
         finalServiceId = newService.id;
       } catch (_) {}
 
-      // 3.3 Cria/Atualiza Usuário no Banco
+      // 3.3 Cria/Localiza Usuário no Banco sem risco de colisão P2002
       const hashedPassword = await bcrypt.hash(finalPassword, 10);
-      const existingDbClient = await prisma.user.findFirst({
-        where: {
-          OR: [
-            ...(formattedEmail ? [{ email: formattedEmail }] : []),
-            ...(cleanPhone ? [{ phone: cleanPhone }] : []),
-          ],
-        },
-      });
+      const hasContactLookup = Boolean(formattedEmail || cleanPhone);
+
+      let existingDbClient: any = null;
+      if (hasContactLookup) {
+        const phoneVariants = cleanPhone
+          ? Array.from(
+              new Set([
+                cleanPhone,
+                cleanPhone.startsWith("55") ? cleanPhone.slice(2) : `55${cleanPhone}`,
+              ])
+            )
+          : [];
+
+        existingDbClient = await prisma.user.findFirst({
+          where: {
+            OR: [
+              ...(formattedEmail
+                ? [{ email: { equals: formattedEmail, mode: "insensitive" as const } }]
+                : []),
+              ...phoneVariants.map((p) => ({ phone: p })),
+            ],
+          },
+        });
+      }
 
       if (existingDbClient) {
-        dbClient = await prisma.user.update({
-          where: { id: existingDbClient.id },
-          data: {
-            name: resolvedName,
-            email: formattedEmail || existingDbClient.email,
-            phone: cleanPhone || existingDbClient.phone,
-            password: hashedPassword,
-          },
-        });
+        dbClient = existingDbClient;
+        // Só atualiza nome de cliente comum se não for conta ADMIN (nunca sobrescreve conta do dono)
+        if (existingDbClient.role !== "ADMIN" && resolvedName && resolvedName !== "Cliente Balcão") {
+          try {
+            dbClient = await prisma.user.update({
+              where: { id: existingDbClient.id },
+              data: { name: resolvedName },
+            });
+          } catch (_) {
+            dbClient = existingDbClient;
+          }
+        }
       } else {
-        dbClient = await prisma.user.create({
-          data: {
-            id: `u-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
-            name: resolvedName,
-            phone: cleanPhone || null,
-            email: formattedEmail || null,
-            password: hashedPassword,
-            role: "CLIENT",
-          },
-        });
+        try {
+          dbClient = await prisma.user.create({
+            data: {
+              id: `u-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
+              name: resolvedName,
+              phone: cleanPhone || null,
+              email: formattedEmail || null,
+              password: hashedPassword,
+              role: "CLIENT",
+            },
+          });
+        } catch (createUserErr: any) {
+          // Se ocorrer P2002 por telefone/e-mail concorrente, cria cliente isolado sem travar o agendamento
+          console.warn("Recuperando de conflito de contato ao criar usuário:", createUserErr?.code);
+          dbClient = await prisma.user.create({
+            data: {
+              id: `u-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
+              name: resolvedName,
+              phone: null,
+              email: null,
+              password: hashedPassword,
+              role: "CLIENT",
+            },
+          });
+        }
       }
 
       // 3.4 Cria Agendamento no Banco
@@ -227,8 +266,15 @@ export async function POST(req: Request) {
 
       dbSuccess = true;
     } catch (dbErr) {
-      // Postgres indisponível — apenas em contingência persiste no storage local
-      console.warn("Aviso: Banco relacional em contingência, dados persistidos no storage blindado.");
+      console.error("ERRO POSTGRES AO CRIAR AGENDAMENTO:", dbErr);
+      if (dbCheckOk) {
+        return NextResponse.json(
+          { error: "Erro ao salvar agendamento no banco de dados. Tente novamente." },
+          { status: 500 }
+        );
+      }
+
+      // Postgres offline — apenas em contingência real persiste no storage local
       persistentClient = upsertStoredUser({
         name: resolvedName,
         email: formattedEmail,
