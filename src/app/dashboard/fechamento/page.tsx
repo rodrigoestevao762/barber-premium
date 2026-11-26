@@ -8,6 +8,7 @@ import { useSession } from "next-auth/react";
 import Image from "next/image";
 import Link from "next/link";
 import { BARBERS } from "@/lib/barbers";
+import { getCachedValue, setCachedValue } from "@/lib/client-cache";
 
 type BarberRevenue = { id?: string; name: string; total: number; commission: number; rate?: number; isOwner?: boolean };
 type FechamentoData = {
@@ -46,9 +47,17 @@ export default function FechamentoPage() {
 
   const fetchData = async () => {
     if (!isAdmin) return;
-    setLoading(true);
+    const cacheKey = `fechamento:${selectedDate}`;
+    const cached = getCachedValue<FechamentoData>(cacheKey);
+    if (cached) {
+      setData(cached);
+      setLoading(false);
+    } else {
+      setLoading(true);
+    }
     const result = await getFechamentoData(selectedDate);
     if (result.success) {
+      setCachedValue(cacheKey, result.data);
       setData(result.data);
     } else {
       alert("Erro do Servidor: " + (result as any).error);

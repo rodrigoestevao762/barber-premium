@@ -7,71 +7,85 @@ import ClientesClientView, { ClientData } from './ClientesClientView';
 
 export default async function ClientesPage() {
   const clientsMap = new Map<string, ClientData>();
-
-  // 1. Carrega todos os agendamentos para mapear histórico
-  const allAppointments = getAllStoredAppointments();
-
-  // 2. Carrega usuários registrados no storage resiliente (role: CLIENT)
-  const storedUsers = getAllStoredUsers().filter(
-    (u) => u.role === 'CLIENT' && !u.id.includes('almir') && !u.name.toLowerCase().includes('almir')
-  );
-
-  storedUsers.forEach((u) => {
-    const key = u.email?.toLowerCase().trim() || u.phone?.replace(/\D/g, "") || u.id;
-    if (key) {
-      clientsMap.set(key, {
-        id: u.id,
-        name: u.name,
-        email: u.email,
-        phone: u.phone,
-        createdAt: u.createdAt,
-        totalAppointments: 0,
-      });
-    }
-  });
-
-  // 3. Carrega clientes e agendamentos do banco de dados relacional (Postgres / Neon)
+  let dbOk = false;
+  let dbClients: any[] = [];
   let dbAppointments: any[] = [];
+
   try {
-    const dbClients = await prisma.user.findMany({
-      where: {
-        role: 'CLIENT',
-        NOT: {
-          email: { contains: 'almir', mode: 'insensitive' },
+    const [clientsRes, aptsRes] = await Promise.all([
+      prisma.user.findMany({
+        where: {
+          role: 'CLIENT',
+          NOT: {
+            email: { contains: 'almir', mode: 'insensitive' },
+          },
         },
-      },
-      orderBy: { createdAt: 'desc' },
-    });
+        select: {
+          id: true,
+          name: true,
+          email: true,
+          phone: true,
+          createdAt: true,
+        },
+        orderBy: { createdAt: 'desc' },
+      }),
+      prisma.appointment.findMany({
+        select: {
+          id: true,
+          date: true,
+          createdAt: true,
+          service: { select: { name: true } },
+          user: { select: { id: true, name: true, email: true, phone: true } },
+        },
+        orderBy: { date: 'desc' },
+      }),
+    ]);
 
-    dbClients.forEach((dbU) => {
-      const key = dbU.email?.toLowerCase().trim() || dbU.phone?.replace(/\D/g, "") || dbU.id;
-      if (key) {
-        const existing = clientsMap.get(key);
-        if (!existing) {
-          clientsMap.set(key, {
-            id: dbU.id,
-            name: dbU.name || 'Cliente VIP',
-            email: dbU.email,
-            phone: dbU.phone,
-            createdAt: dbU.createdAt ? dbU.createdAt.toISOString() : new Date().toISOString(),
-            totalAppointments: 0,
-          });
-        }
-      }
-    });
-
-    dbAppointments = await prisma.appointment.findMany({
-      include: { service: true, user: true },
-      orderBy: { date: 'desc' },
-    });
+    dbClients = clientsRes || [];
+    dbAppointments = aptsRes || [];
+    dbOk = true;
   } catch (_) {}
 
-  // 4. Integra agendamentos (Banco + Memória) para contabilizar visitas e histórico
-  const aptsMap = new Map<string, any>();
-  allAppointments.forEach((a) => aptsMap.set(a.id, a));
-  dbAppointments.forEach((a) => aptsMap.set(a.id, a));
+  if (dbOk) {
+    dbClients.forEach((dbU) => {
+      if (dbU.id?.includes('almir') || dbU.name?.toLowerCase().includes('almir')) return;
+      const key = dbU.email?.toLowerCase().trim() || dbU.phone?.replace(/\D/g, "") || dbU.id;
+      if (key && !clientsMap.has(key)) {
+        clientsMap.set(key, {
+          id: dbU.id,
+          name: dbU.name || 'Cliente VIP',
+          email: dbU.email,
+          phone: dbU.phone,
+          createdAt: dbU.createdAt ? dbU.createdAt.toISOString() : new Date().toISOString(),
+          totalAppointments: 0,
+        });
+      }
+    });
+  } else {
+    const storedUsers = getAllStoredUsers().filter(
+      (u) => u.role === 'CLIENT' && !u.id.includes('almir') && !u.name.toLowerCase().includes('almir')
+    );
 
-  Array.from(aptsMap.values()).forEach((apt) => {
+    storedUsers.forEach((u) => {
+      const key = u.email?.toLowerCase().trim() || u.phone?.replace(/\D/g, "") || u.id;
+      if (key) {
+        clientsMap.set(key, {
+          id: u.id,
+          name: u.name,
+          email: u.email,
+          phone: u.phone,
+          createdAt: u.createdAt,
+          totalAppointments: 0,
+        });
+      }
+    });
+  }
+
+  const effectiveAppointments = (dbOk ? dbAppointments : getAllStoredAppointments()).filter(
+    (a) => !a.id?.includes('almir') && !a.user?.name?.toLowerCase().includes('almir')
+  );
+
+  effectiveAppointments.forEach((apt) => {
     if (!apt.user) return;
     const cleanPhone = apt.user.phone ? apt.user.phone.replace(/\D/g, "") : "";
     const email = apt.user.email ? apt.user.email.toLowerCase().trim() : "";

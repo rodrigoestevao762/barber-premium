@@ -13,7 +13,7 @@ import {
 } from '@/lib/appointments-store';
 import { parseBrazilDateTime } from '@/lib/timezone';
 import { getMonthlyFinancialSummary } from '@/lib/financial-summary';
-import { enrichAppointmentsWithAddons, getAppointmentTotalPrice } from '@/lib/appointment-addons';
+import { getAddonsByAppointmentIds, enrichAppointmentsWithAddons, getAppointmentTotalPrice } from '@/lib/appointment-addons';
 
 export const dynamic = 'force-dynamic';
 
@@ -107,21 +107,18 @@ export async function GET(req: Request) {
     let upcomingAppointments: any[] = [];
     let dbOk = false;
 
+    const monthlyPromise = getMonthlyFinancialSummary(dateParam.slice(0, 7), dateParam);
+
     try {
-      const dbAppointments = await prisma.appointment.findMany({
-        where: {
-          date: { gte: startOfDay, lte: endOfDay },
-        },
-        include: { service: true, user: true, barber: true },
-        orderBy: { date: "asc" },
-      });
-
-      allDayAppointments = (dbAppointments || []).filter(
-        (a) => !a.id?.includes("almir") && !a.user?.name?.toLowerCase().includes("almir")
-      );
-
-      upcomingAppointments = (
-        await prisma.appointment.findMany({
+      const [dbAppointments, dbUpcoming] = await Promise.all([
+        prisma.appointment.findMany({
+          where: {
+            date: { gte: startOfDay, lte: endOfDay },
+          },
+          include: { service: true, user: true, barber: true },
+          orderBy: { date: "asc" },
+        }),
+        prisma.appointment.findMany({
           where: {
             date: { gte: new Date() },
             status: { in: ["PENDING", "CONFIRMED"] },
@@ -129,8 +126,15 @@ export async function GET(req: Request) {
           include: { service: true, user: true, barber: true },
           orderBy: { date: "asc" },
           take: 20,
-        })
-      ).filter((a) => !a.id?.includes("almir") && !a.user?.name?.toLowerCase().includes("almir"));
+        }),
+      ]);
+
+      allDayAppointments = (dbAppointments || []).filter(
+        (a) => !a.id?.includes("almir") && !a.user?.name?.toLowerCase().includes("almir")
+      );
+      upcomingAppointments = (dbUpcoming || []).filter(
+        (a) => !a.id?.includes("almir") && !a.user?.name?.toLowerCase().includes("almir")
+      );
 
       dbOk = true;
     } catch (dbErr) {
@@ -155,11 +159,32 @@ export async function GET(req: Request) {
 
     // Como Lucas Augusto trabalha sozinho, 100% da receita é dele / do Studio
     const soloBarber = BARBERS[0];
-    allDayAppointments = await enrichAppointmentsWithAddons(allDayAppointments);
-    upcomingAppointments = await enrichAppointmentsWithAddons(upcomingAppointments);
+    const allIds = Array.from(
+      new Set([...allDayAppointments, ...upcomingAppointments].map((a) => a.id).filter(Boolean))
+    );
+    const [addonsMap, monthlySummaryData] = await Promise.all([
+      getAddonsByAppointmentIds(allIds),
+      monthlyPromise,
+    ]);
+
+    const attachAddons = (list: any[]) =>
+      list.map((apt) => {
+        const addons = addonsMap.get(apt.id) || [];
+        const basePrice = Number(apt.service?.price || 0);
+        const extraPrice = addons.reduce((acc, a) => acc + Number(a.price || 0), 0);
+        return {
+          ...apt,
+          addons,
+          basePrice,
+          extraPrice,
+          totalPrice: basePrice + extraPrice,
+        };
+      });
+
+    allDayAppointments = attachAddons(allDayAppointments);
+    upcomingAppointments = attachAddons(upcomingAppointments);
     const bApts = allDayAppointments;
 
-    const monthlySummaryData = await getMonthlyFinancialSummary(dateParam.slice(0, 7), dateParam);
     const completedList = bApts.filter((apt) => apt.status === "COMPLETED");
     const totalGrossRevenue = completedList.reduce((acc, apt) => acc + getAppointmentTotalPrice(apt), 0);
     const ticketMedio = completedList.length > 0 ? totalGrossRevenue / completedList.length : 0;

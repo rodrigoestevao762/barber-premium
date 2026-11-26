@@ -8,6 +8,7 @@ import { signOut, useSession } from "next-auth/react";
 import { useRouter, usePathname } from "next/navigation";
 import { getDisplayTime, getBrazilDateAndTimeString } from "@/lib/timezone";
 import LogoLasBarber from "@/components/LogoLasBarber";
+import { prefetchJson } from "@/lib/client-cache";
 
 function formatNotificationDate(dateInput?: string | Date): string {
   if (!dateInput) return "";
@@ -95,6 +96,42 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     void fetchNotifs();
   }, [fetchNotifs]);
 
+  const warmRouteAndData = useCallback(
+    (routePath: string) => {
+      router.prefetch(routePath);
+      const d = new Date();
+      const todayStr = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(
+        d.getDate()
+      ).padStart(2, "0")}`;
+      const monthStr = todayStr.slice(0, 7);
+
+      if (routePath === "/dashboard" || routePath === "/dashboard/agenda") {
+        void prefetchJson(`dashboard:${todayStr}`, `/api/dashboard?date=${todayStr}`);
+        void prefetchJson(`barbers:${todayStr}`, `/api/barbers?date=${todayStr}`);
+      } else if (routePath === "/dashboard/financeiro") {
+        void prefetchJson(
+          `financeiro:${monthStr}:${todayStr}`,
+          `/api/financeiro/monthly?month=${encodeURIComponent(monthStr)}&date=${encodeURIComponent(todayStr)}`
+        );
+      }
+    },
+    [router]
+  );
+
+  useEffect(() => {
+    if (status !== "authenticated") return;
+    const timer = window.setTimeout(() => {
+      [
+        "/dashboard",
+        "/dashboard/agenda",
+        "/dashboard/financeiro",
+        "/dashboard/clientes",
+        "/dashboard/fechamento",
+      ].forEach((r) => warmRouteAndData(r));
+    }, 300);
+    return () => window.clearTimeout(timer);
+  }, [status, warmRouteAndData]);
+
   useEffect(() => {
     setIsNotifOpen(false);
   }, [pathname]);
@@ -166,19 +203,31 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             </div>
           </Link>
 
-          {navItems.map((item) => (
-            <Link
-              key={item.id}
-              href={item.id}
-              className="relative group p-3"
-            >
-              <item.icon className="w-5 h-5 relative z-10 transition-colors duration-300 text-gray-400 group-hover:text-[#DFBA73]" />
-              
-              <div className="absolute left-full ml-4 top-1/2 -translate-y-1/2 px-3 py-1.5 bg-[#080A0E] border border-[#DFBA73]/40 text-white rounded-lg opacity-0 group-hover:opacity-100 -translate-x-4 group-hover:translate-x-0 transition-all duration-300 pointer-events-none whitespace-nowrap text-xs tracking-wider uppercase font-semibold shadow-xl font-mono">
-                {item.label}
-              </div>
-            </Link>
-          ))}
+          {navItems.map((item) => {
+            const isActive = pathname === item.id;
+            return (
+              <Link
+                key={item.id}
+                href={item.id}
+                prefetch={true}
+                onMouseEnter={() => warmRouteAndData(item.id)}
+                onFocus={() => warmRouteAndData(item.id)}
+                className={`relative group p-3 rounded-xl transition-colors duration-150 ${
+                  isActive ? "bg-[#DFBA73]/15 text-[#DFBA73]" : ""
+                }`}
+              >
+                <item.icon
+                  className={`w-5 h-5 relative z-10 transition-colors duration-150 ${
+                    isActive ? "text-[#DFBA73]" : "text-gray-400 group-hover:text-[#DFBA73]"
+                  }`}
+                />
+                
+                <div className="absolute left-full ml-4 top-1/2 -translate-y-1/2 px-3 py-1.5 bg-[#080A0E] border border-[#DFBA73]/40 text-white rounded-lg opacity-0 group-hover:opacity-100 -translate-x-4 group-hover:translate-x-0 transition-all duration-150 pointer-events-none whitespace-nowrap text-xs tracking-wider uppercase font-semibold shadow-xl font-mono">
+                  {item.label}
+                </div>
+              </Link>
+            );
+          })}
         </div>
 
         {/* Botão Desconectar (Desktop Lateral) */}
@@ -245,12 +294,14 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             <Link 
               key={item.id} 
               href={item.id} 
+              prefetch={true}
+              onTouchStart={() => warmRouteAndData(item.id)}
               onClick={() => {
                 if (isActive && typeof window !== "undefined") {
                   window.scrollTo({ top: 0, behavior: "smooth" });
                 }
               }}
-              className={`p-1.5 flex flex-col items-center justify-center transition-all ${
+              className={`p-1.5 flex flex-col items-center justify-center transition-colors duration-150 ${
                 isActive ? "text-[#DFBA73] scale-105" : "text-gray-400 hover:text-white"
               }`}
             >
@@ -280,21 +331,12 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
               <Shield className="w-3.5 h-3.5" /> Gestor do Estúdio • Dono
             </span>
           </div>
-          <motion.h1 
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="text-3xl md:text-5xl font-serif text-white tracking-tight"
-          >
+          <h1 className="text-3xl md:text-5xl font-serif text-white tracking-tight">
             {greeting}, <span className="text-[#F5D799] italic">{userName}</span>
-          </motion.h1>
-          <motion.p 
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            transition={{ delay: 0.1 }}
-            className="text-gray-300 text-xs md:text-sm mt-1.5 font-light"
-          >
+          </h1>
+          <p className="text-gray-300 text-xs md:text-sm mt-1.5 font-light">
             Painel do Studio • LAS Barber Studio • Gestão solo, agenda e faturamento de Lucas Augusto.
-          </motion.p>
+          </p>
         </div>
 
         {/* User Badge & Actions (Desktop) */}

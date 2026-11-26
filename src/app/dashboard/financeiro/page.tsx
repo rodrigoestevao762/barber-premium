@@ -32,6 +32,7 @@ import { OFFICIAL_SERVICES } from "@/lib/services";
 import { useSession } from "next-auth/react";
 import { WalkInTimePicker } from "@/components/WalkInTimePicker";
 import { getDefaultWalkInSlot } from "@/lib/studio-slots";
+import { getCachedValue, setCachedValue, invalidateCachePrefix } from "@/lib/client-cache";
 
 type ExpenseCategory = "INSUMOS" | "FIXO" | "OUTROS";
 
@@ -194,7 +195,14 @@ export default function FinanceiroPage() {
   }, [isExpenseModalOpen, isWalkInModalOpen]);
 
   const loadFinancialData = useCallback(async (monthStr: string, dateStr: string) => {
-    setLoading(true);
+    const cacheKey = `financeiro:${monthStr}:${dateStr}`;
+    const cached = getCachedValue<MonthlySummaryPayload>(cacheKey);
+    if (cached) {
+      setSummary(cached);
+      setLoading(false);
+    } else {
+      setLoading(true);
+    }
     try {
       const res = await fetch(
         `/api/financeiro/monthly?month=${encodeURIComponent(monthStr)}&date=${encodeURIComponent(dateStr)}`,
@@ -202,6 +210,7 @@ export default function FinanceiroPage() {
       );
       if (res.ok) {
         const json: MonthlySummaryPayload = await res.json();
+        setCachedValue(cacheKey, json);
         setSummary(json);
       }
 
@@ -326,6 +335,9 @@ export default function FinanceiroPage() {
 
       setIsWalkInModalOpen(false);
       setWalkInError(null);
+      invalidateCachePrefix("dashboard:");
+      invalidateCachePrefix("agenda:");
+      invalidateCachePrefix("fechamento:");
       await loadFinancialData(selectedMonth, selectedDate);
       setToastMessage(
         walkInStatus === "COMPLETED"
@@ -434,11 +446,7 @@ export default function FinanceiroPage() {
   const activeExpensesList = viewMode === "monthly" ? monthlyExpensesList : dailyExpensesList;
 
   return (
-    <motion.div
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      className="max-w-[1200px] mx-auto space-y-8 pb-16"
-    >
+    <div className="max-w-[1200px] mx-auto space-y-8 pb-16">
       {/* Toast Notification */}
       <AnimatePresence>
         {toastMessage && (
@@ -1816,6 +1824,6 @@ export default function FinanceiroPage() {
           </AnimatePresence>,
           document.body
         )}
-    </motion.div>
+    </div>
   );
 }

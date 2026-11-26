@@ -23,6 +23,12 @@ function getMemoryAddons(): AppointmentAddonItem[] {
   return global.__las_appointment_addons;
 }
 
+function isMissingAddonTableError(err: any): boolean {
+  const msg = String(err?.message || "").toLowerCase();
+  const code = String(err?.code || "");
+  return code === "42P01" || (msg.includes("appointmentaddon") && msg.includes("does not exist"));
+}
+
 export async function ensureAddonTable(): Promise<void> {
   if (global.__las_addon_table_ready) return;
   try {
@@ -64,9 +70,8 @@ export async function getAddonsByAppointmentIds(
     result.set(item.appointmentId, list);
   };
 
-  try {
-    await ensureAddonTable();
-    const rows = await prisma.$queryRawUnsafe<
+  const queryRows = () =>
+    prisma.$queryRawUnsafe<
       Array<{
         id: string;
         appointmentId: string;
@@ -83,6 +88,20 @@ export async function getAddonsByAppointmentIds(
        ORDER BY "createdAt" ASC`,
       uniqueIds
     );
+
+  try {
+    let rows;
+    try {
+      rows = await queryRows();
+      global.__las_addon_table_ready = true;
+    } catch (firstErr) {
+      if (isMissingAddonTableError(firstErr)) {
+        await ensureAddonTable();
+        rows = await queryRows();
+      } else {
+        throw firstErr;
+      }
+    }
 
     for (const row of rows || []) {
       addToBucket({
@@ -128,9 +147,8 @@ export async function addAppointmentAddon(input: {
     createdAt: new Date().toISOString(),
   };
 
-  try {
-    await ensureAddonTable();
-    await prisma.$executeRawUnsafe(
+  const insertRow = () =>
+    prisma.$executeRawUnsafe(
       `INSERT INTO public."AppointmentAddon"
        ("id", "appointmentId", "serviceId", "serviceName", "price", "duration", "createdAt")
        VALUES ($1, $2, $3, $4, $5, $6, $7)`,
@@ -142,6 +160,19 @@ export async function addAppointmentAddon(input: {
       newItem.duration,
       new Date(newItem.createdAt)
     );
+
+  try {
+    try {
+      await insertRow();
+      global.__las_addon_table_ready = true;
+    } catch (firstErr) {
+      if (isMissingAddonTableError(firstErr)) {
+        await ensureAddonTable();
+        await insertRow();
+      } else {
+        throw firstErr;
+      }
+    }
   } catch (err) {
     console.warn("Aviso ao inserir AppointmentAddon no Postgres, gravando em memória:", err);
     getMemoryAddons().push(newItem);

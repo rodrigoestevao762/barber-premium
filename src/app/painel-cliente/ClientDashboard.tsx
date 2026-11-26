@@ -16,6 +16,7 @@ import { LogoLasBarber } from "@/components/LogoLasBarber";
 import { BARBERS, getBarberById } from "@/lib/barbers";
 import { getDisplayTime } from "@/lib/timezone";
 import { checkDayStatus } from "@/lib/holidays";
+import { getCachedValue, setCachedValue } from "@/lib/client-cache";
 
 export default function ClientDashboard() {
   const { data: session, status } = useSession();
@@ -101,7 +102,19 @@ export default function ClientDashboard() {
   }, [session]);
 
   const loadDashboardData = () => {
-    fetch("/api/dashboard")
+    const cached = getCachedValue<{ client?: any; appointments?: any[] }>("client-dashboard");
+    if (cached?.appointments) {
+      if (cached.client) {
+        setClientData({
+          name: cached.client.name || "",
+          email: cached.client.email || "",
+          phone: cached.client.phone || "",
+        });
+      }
+      setAppointments(cached.appointments);
+      setLoading(false);
+    }
+    fetch("/api/dashboard", { cache: "no-store" })
       .then((res) => res.json())
       .then((data) => {
         if (data.isClient) {
@@ -117,6 +130,7 @@ export default function ClientDashboard() {
               (a: any, b: any) => new Date(b.date).getTime() - new Date(a.date).getTime()
             );
             setAppointments(sorted);
+            setCachedValue("client-dashboard", { client: data.client, appointments: sorted });
           }
         }
         setLoading(false);

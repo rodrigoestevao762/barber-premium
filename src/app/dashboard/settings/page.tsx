@@ -2,7 +2,7 @@ import { Settings, Sparkles, Bell } from 'lucide-react';
 
 export default function SettingsPage() {
   return (
-    <div className="max-w-6xl mx-auto space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
+    <div className="max-w-6xl mx-auto space-y-8 animate-in fade-in duration-150">
       <div className="bg-white/5 border border-white/10 rounded-3xl p-8 backdrop-blur-md">
         <h2 className="text-3xl font-serif text-white mb-8 flex items-center gap-3">
           <Settings className="text-amber-400" /> Ajustes do Studio • Lucas Augusto

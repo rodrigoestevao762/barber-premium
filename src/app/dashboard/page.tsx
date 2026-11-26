@@ -10,6 +10,7 @@ import {
 } from "lucide-react";
 import { useEffect, useState } from "react";
 import Image from "next/image";
+import Link from "next/link";
 import { useSession } from "next-auth/react";
 import { BARBERS, BarberData } from "@/lib/barbers";
 import { OFFICIAL_SERVICES, ServiceItem } from "@/lib/services";
@@ -18,6 +19,7 @@ import { LunchBreakControl } from "@/components/LunchBreakControl";
 import { WalkInTimePicker } from "@/components/WalkInTimePicker";
 import { ExtraServiceModal } from "@/components/ExtraServiceModal";
 import { getDefaultWalkInSlot } from "@/lib/studio-slots";
+import { getCachedValue, setCachedValue, invalidateCachePrefix } from "@/lib/client-cache";
 
 export default function DashboardPage() {
   const { data: session } = useSession();
@@ -89,11 +91,26 @@ export default function DashboardPage() {
   const [isProcessingCancel, setIsProcessingCancel] = useState(false);
   const [cancelSuccessWhatsappUrl, setCancelSuccessWhatsappUrl] = useState<string | null>(null);
 
-  // Carrega status da disponibilidade no site para a data selecionada
+  // Carrega status da disponibilidade no site para a data selecionada (hidrata do cache para 0ms de tela)
   useEffect(() => {
+    const cachedBarbers = getCachedValue<any>(`barbers:${selectedDate}`);
+    if (cachedBarbers) {
+      const list = Array.isArray(cachedBarbers) ? cachedBarbers : (cachedBarbers?.barbers || []);
+      const owner = list.find((b: any) => b.id === "barbeiro-lucas" || b.id === "barbeiro-dono");
+      if (owner) {
+        setIsOwnerAvailable(owner.isAvailable !== false);
+        setEarlyClosing(owner.earlyClosingTime || null);
+        setLunchBreak(owner.lunchBreakTime || null);
+        setDefaultLunchBreak(owner.defaultLunchBreakTime || null);
+        setIsLunchBreakFixed(Boolean(owner.isLunchBreakFixed));
+        setHasLunchDateOverride(Boolean(owner.hasLunchDateOverride));
+        setLunchBreakScope(owner.hasLunchDateOverride ? "date" : "default");
+      }
+    }
     fetch(`/api/barbers?date=${selectedDate}&t=${Date.now()}`, { cache: "no-store" })
       .then((res) => res.json())
       .then((data) => {
+        setCachedValue(`barbers:${selectedDate}`, data);
         const list = Array.isArray(data) ? data : (data?.barbers || []);
         const owner = list.find((b: any) => b.id === "barbeiro-lucas" || b.id === "barbeiro-dono");
         if (owner) {
@@ -260,10 +277,17 @@ export default function DashboardPage() {
   };
 
   const fetchDashboard = async () => {
+    const cacheKey = `dashboard:${selectedDate}`;
+    const cached = getCachedValue<any>(cacheKey);
+    if (cached) {
+      setDashboardData(cached);
+      setLoading(false);
+    }
     try {
       const res = await fetch(`/api/dashboard?date=${selectedDate}`, { cache: "no-store" });
       if (res.ok) {
         const json = await res.json();
+        setCachedValue(cacheKey, json);
         setDashboardData(json);
       }
     } catch (e) {
@@ -284,6 +308,9 @@ export default function DashboardPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ id, status: newStatus })
       });
+      invalidateCachePrefix("dashboard:");
+      invalidateCachePrefix("financeiro:");
+      invalidateCachePrefix("fechamento:");
       fetchDashboard();
     } catch (e) {
       console.error(e);
@@ -323,6 +350,10 @@ export default function DashboardPage() {
         setWalkInError(null);
         setWalkInClientName("Cliente Balcão");
         setWalkInClientPhone("");
+        invalidateCachePrefix("dashboard:");
+        invalidateCachePrefix("agenda:");
+        invalidateCachePrefix("financeiro:");
+        invalidateCachePrefix("fechamento:");
         if (targetDate !== selectedDate) {
           setSelectedDate(targetDate);
         } else {
@@ -634,12 +665,13 @@ export default function DashboardPage() {
                 <CheckCircle2 className="w-4 h-4" /> Concluir Atendimento
               </button>
 
-              <a
+              <Link
                 href="/dashboard/agenda"
+                prefetch={true}
                 className="px-4 py-3 rounded-xl bg-white/5 border border-white/10 hover:border-[#DFBA73]/40 text-gray-300 hover:text-white transition-all text-xs font-mono uppercase tracking-wider flex items-center gap-1.5 cursor-pointer"
               >
                 Ver na Agenda <ChevronRight className="w-3.5 h-3.5" />
-              </a>
+              </Link>
             </div>
           </div>
         </div>
@@ -655,12 +687,13 @@ export default function DashboardPage() {
                 0 agendados
               </span>
             </div>
-            <a
+            <Link
               href="/dashboard/agenda"
+              prefetch={true}
               className="text-xs text-[#DFBA73] hover:underline font-mono uppercase tracking-wider flex items-center gap-1"
             >
               Abrir Agenda <ChevronRight className="w-3.5 h-3.5" />
-            </a>
+            </Link>
           </div>
           <p className="text-xs text-gray-400 mt-2 font-light">
             Nenhum cliente agendado aguardando atendimento no momento.
@@ -785,13 +818,14 @@ export default function DashboardPage() {
                   Produção Bruta, Despesas & <span className="text-[#F5D799] italic">Lucro Líquido</span>
                 </h3>
               </div>
-              <a
+              <Link
                 href="/dashboard/financeiro"
-                className="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-xl bg-gradient-to-r from-[#DFBA73]/20 to-[#DFBA73]/10 hover:from-[#F5D799] hover:to-[#DFBA73] text-[#F5D799] hover:text-black border border-[#DFBA73]/40 text-xs font-mono font-bold uppercase tracking-wider transition-all duration-300 shadow-lg shadow-black/40 self-start sm:self-center"
+                prefetch={true}
+                className="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-xl bg-gradient-to-r from-[#DFBA73]/20 to-[#DFBA73]/10 hover:from-[#F5D799] hover:to-[#DFBA73] text-[#F5D799] hover:text-black border border-[#DFBA73]/40 text-xs font-mono font-bold uppercase tracking-wider transition-all duration-150 shadow-lg shadow-black/40 self-start sm:self-center"
               >
                 <span>Abrir Financeiro Mensal</span>
                 <ChevronRight className="w-3.5 h-3.5" />
-              </a>
+              </Link>
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 relative z-10">

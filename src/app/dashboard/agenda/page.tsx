@@ -17,6 +17,7 @@ import { LunchBreakControl } from '@/components/LunchBreakControl';
 import { WalkInTimePicker } from '@/components/WalkInTimePicker';
 import { ExtraServiceModal } from '@/components/ExtraServiceModal';
 import { getDefaultWalkInSlot } from '@/lib/studio-slots';
+import { getCachedValue, setCachedValue, invalidateCachePrefix } from '@/lib/client-cache';
 
 export default function AgendaPage() {
   const { data: session } = useSession();
@@ -140,9 +141,23 @@ export default function AgendaPage() {
 
   // Carrega status de disponibilidade do barbeiro para a data selecionada
   useEffect(() => {
+    const cachedBarbers = getCachedValue<any>(`barbers:${selectedDate}`);
+    if (cachedBarbers) {
+      const list = Array.isArray(cachedBarbers) ? cachedBarbers : (cachedBarbers?.barbers || []);
+      const owner = list.find((b: any) => b.id === "barbeiro-lucas" || b.id === "barbeiro-dono");
+      if (owner) {
+        setIsOwnerAvailable(owner.isAvailable !== false);
+        setLunchBreak(owner.lunchBreakTime || null);
+        setDefaultLunchBreak(owner.defaultLunchBreakTime || null);
+        setIsLunchBreakFixed(Boolean(owner.isLunchBreakFixed));
+        setHasLunchDateOverride(Boolean(owner.hasLunchDateOverride));
+        setLunchBreakScope(owner.hasLunchDateOverride ? "date" : "default");
+      }
+    }
     fetch(`/api/barbers?date=${selectedDate}&t=${Date.now()}`, { cache: "no-store" })
       .then((res) => res.json())
       .then((data) => {
+        setCachedValue(`barbers:${selectedDate}`, data);
         const list = Array.isArray(data) ? data : (data?.barbers || []);
         const owner = list.find((b: any) => b.id === "barbeiro-lucas" || b.id === "barbeiro-dono");
         if (owner) {
@@ -232,12 +247,24 @@ export default function AgendaPage() {
 
   // Carrega os agendamentos da data selecionada
   const fetchAgenda = async () => {
-    setLoading(true);
+    const cacheKey = `agenda:${selectedDate}:${selectedBarberFilter}`;
+    const dashFallbackKey = selectedBarberFilter === "all" ? `dashboard:${selectedDate}` : null;
+    const cached =
+      getCachedValue<any>(cacheKey) ||
+      (dashFallbackKey ? getCachedValue<any>(dashFallbackKey) : null);
+    if (cached) {
+      setAppointments(cached.appointments || []);
+      setLoading(false);
+    } else {
+      setLoading(true);
+    }
     try {
       const barberParam = (isAdmin && selectedBarberFilter !== "all") ? `&barberId=${selectedBarberFilter}` : '';
       const res = await fetch(`/api/dashboard?date=${selectedDate}${barberParam}`, { cache: "no-store" });
       if (res.ok) {
         const data = await res.json();
+        setCachedValue(cacheKey, data);
+        if (dashFallbackKey) setCachedValue(dashFallbackKey, data);
         setAppointments(data.appointments || []);
       }
     } catch (error) {
@@ -428,7 +455,7 @@ export default function AgendaPage() {
   );
 
   return (
-    <div className="max-w-6xl mx-auto space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700 pb-12">
+    <div className="max-w-6xl mx-auto space-y-8 animate-in fade-in duration-150 pb-12">
       
       {/* ━━━ FEEDBACK VISUAL DE PERSISTÊNCIA ━━━ */}
       {toastMessage && (
