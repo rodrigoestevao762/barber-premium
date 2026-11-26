@@ -32,6 +32,8 @@ export interface MonthlyFinancialSummary {
   completedCount: number;
   scheduledCount: number;
   pendingRevenue: number;
+  pastPendingCount: number;
+  pastPendingRevenue: number;
   ticketMedio: number;
   expensesCount: number;
   expensesByCategory: {
@@ -156,6 +158,9 @@ export async function getMonthlyFinancialSummary(
   let completedCount = 0;
   let scheduledCount = 0;
   let pendingRevenue = 0;
+  let pastPendingCount = 0;
+  let pastPendingRevenue = 0;
+  const nowMs = Date.now();
 
   for (const apt of monthAppointments) {
     const price = getAppointmentTotalPrice(apt);
@@ -179,6 +184,10 @@ export async function getMonthlyFinancialSummary(
     ) {
       scheduledCount += 1;
       pendingRevenue += price;
+      if (new Date(apt.date).getTime() < nowMs) {
+        pastPendingCount += 1;
+        pastPendingRevenue += price;
+      }
     }
   }
 
@@ -233,6 +242,8 @@ export async function getMonthlyFinancialSummary(
     completedCount,
     scheduledCount,
     pendingRevenue,
+    pastPendingCount,
+    pastPendingRevenue,
     ticketMedio,
     expensesCount: monthExpenses.length,
     expensesByCategory,

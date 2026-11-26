@@ -66,6 +66,8 @@ interface MonthlySummaryPayload {
   completedCount: number;
   scheduledCount: number;
   pendingRevenue: number;
+  pastPendingCount?: number;
+  pastPendingRevenue?: number;
   ticketMedio: number;
   expensesCount: number;
   expensesByCategory: {
@@ -156,6 +158,7 @@ export default function FinanceiroPage() {
   const [expenseCategory, setExpenseCategory] = useState<ExpenseCategory>("INSUMOS");
   const [expenseDate, setExpenseDate] = useState<string>(getTodayDateStr);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isSettlingPending, setIsSettlingPending] = useState(false);
 
   const [isWalkInModalOpen, setIsWalkInModalOpen] = useState(false);
   const [selectedServiceId, setSelectedServiceId] = useState<string>(
@@ -248,6 +251,34 @@ export default function FinanceiroPage() {
       localStorage.removeItem(`caixa_status_${selectedDate}`);
       setIsCaixaClosed(false);
       setToastMessage(`Caixa do dia ${dateFormatted} reaberto para lançamentos.`);
+    }
+  };
+
+  // Concluir em lote todos os agendamentos de horários já encerrados do mês
+  const handleSettlePastPending = async () => {
+    setIsSettlingPending(true);
+    try {
+      const res = await fetch("/api/financeiro/settle-pending", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ month: selectedMonth, date: selectedDate }),
+      });
+      if (!res.ok) {
+        throw new Error("Não foi possível concluir os atendimentos pendentes");
+      }
+      const data = await res.json();
+      if (data?.summary) {
+        setSummary(data.summary);
+      } else {
+        await loadFinancialData(selectedMonth, selectedDate);
+      }
+      setToastMessage(
+        `${data?.settledCount || 0} atendimento(s) pendente(s) concluído(s) e somado(s) ao faturamento!`
+      );
+    } catch (e: any) {
+      alert(e?.message || "Erro ao concluir pendentes passados.");
+    } finally {
+      setIsSettlingPending(false);
     }
   };
 
@@ -382,6 +413,8 @@ export default function FinanceiroPage() {
   const monthlyCompleted = summary?.completedCount || 0;
   const monthlyTicket = summary?.ticketMedio || 0;
   const monthlyPending = summary?.pendingRevenue || 0;
+  const pastPendingCount = summary?.pastPendingCount || 0;
+  const pastPendingRevenue = summary?.pastPendingRevenue || 0;
   const monthlyExpensesList = summary?.expensesList || [];
   const dailyBreakdown = summary?.dailyBreakdown || [];
   const catTotals = summary?.expensesByCategory || { INSUMOS: 0, FIXO: 0, OUTROS: 0 };
@@ -535,6 +568,36 @@ export default function FinanceiroPage() {
           </button>
         </div>
       </div>
+
+      {/* ALERTA DE PENDENTES DE HORÁRIOS JÁ PASSADOS */}
+      {pastPendingCount > 0 && (
+        <div className="rounded-2xl bg-gradient-to-r from-[#1A140B] via-[#120F0A] to-[#0B0D12] border border-[#DFBA73]/45 px-5 py-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4 shadow-lg">
+          <div className="flex items-start sm:items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-[#DFBA73]/15 border border-[#DFBA73]/30 flex items-center justify-center text-[#F5D799] shrink-0">
+              <Clock className="w-5 h-5" />
+            </div>
+            <div>
+              <p className="text-sm font-medium text-white">
+                {pastPendingCount}{" "}
+                {pastPendingCount === 1
+                  ? "atendimento de horário passado está aguardando conclusão"
+                  : "atendimentos de horários passados estão aguardando conclusão"}
+              </p>
+              <p className="text-xs font-mono text-[#F5D799]">
+                +{formatBRL(pastPendingRevenue)} ainda não somados aos lucros diários e mensal.
+              </p>
+            </div>
+          </div>
+          <button
+            type="button"
+            disabled={isSettlingPending}
+            onClick={handleSettlePastPending}
+            className="px-4 py-2.5 rounded-xl bg-gradient-to-r from-[#F5D799] via-[#DFBA73] to-[#B88B38] text-black font-bold text-xs uppercase font-mono tracking-wider hover:brightness-110 transition-all shrink-0 cursor-pointer disabled:opacity-50"
+          >
+            {isSettlingPending ? "Concluindo..." : "Concluir Pendentes Passados"}
+          </button>
+        </div>
+      )}
 
       {/* =====================================================================
           VISÃO MENSAL COMPLETA
